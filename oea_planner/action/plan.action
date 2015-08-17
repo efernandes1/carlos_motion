@@ -1,0 +1,11 @@
+#goal 
+geometry_msgs/PoseStamped pose_goal
+---
+#result
+bool result_state
+string error_string
+nav_msgs/Path planned_path
+---
+#feedback
+bool state
+string description

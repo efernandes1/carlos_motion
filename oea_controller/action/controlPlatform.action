@@ -1,0 +1,9 @@
+#goal 
+nav_msgs/Path plan_goal
+---
+#result
+bool result_state
+string error_string
+---
+#feedback
+uint8 hw_state

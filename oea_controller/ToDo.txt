@@ -1,0 +1,15 @@
+# ToDo:
+	* call Astar service to replan when robot gets stuck
+	* control v=f(dist) for last target
+	* change name from oea_controller to ?
+
+# Issues:
+	* gets stuck when is parallel to the goal. 
+
+	
+[SOLVED] Issues :
+	* too much v (linear) on curves -> scale down if error_theta2 > 5 deg
+	* not working when goal is behind the robot
+	* program dies when robot arrives at the goal
+	* in DE_ACCEL_LAST state: if robot gets stuck, can't recover nor stop. Gets stuck "forever".
+	* always pub state -> pub controller_state for "obstacle", "lost"...
