@@ -13,8 +13,10 @@ int fixp_2_2 = round(sqrt(2*2 + 2*2) * fixp_1);
 pcl::PointCloud<pcl::PointXYZRGB >::Ptr Cloud_Markers (new pcl::PointCloud<pcl::PointXYZRGB >);
 
 // constructor
-TAstar::TAstar()
+TAstar::TAstar(std::string logger_name)
 {
+    logger_name_ = logger_name;
+
     level_closest = 0;
     level_middle = 0;
     level_farthest = 0;
@@ -165,7 +167,7 @@ void TAstar::SetGridFromMap(const nav_msgs::OccupancyGrid::ConstPtr& map, sensor
 
 
     ros::Duration d = ros::Time::now()-time_0;
-    ROS_DEBUG_STREAM("*** Setting cells took: " << d.toSec() << " seconds.");
+    ROS_DEBUG_STREAM_NAMED(logger_name_, "Setting cells took: " << d.toSec() << " seconds.");
 
     bool enter = true;
     time_0 = ros::Time::now();
@@ -191,7 +193,7 @@ void TAstar::SetGridFromMap(const nav_msgs::OccupancyGrid::ConstPtr& map, sensor
 
     }
     d = ros::Time::now()-time_0;
-    ROS_DEBUG_STREAM("*** Inflation took: " << d.toSec() << " seconds.");
+    ROS_DEBUG_STREAM_NAMED(logger_name_, "Inflation took: " << d.toSec() << " seconds.");
 
     Cloud_Markers->reserve(n_inflated_cells_);
 
@@ -236,7 +238,7 @@ void TAstar::SetGridFromMap(const nav_msgs::OccupancyGrid::ConstPtr& map, sensor
 
 
     d = ros::Time::now()-time_0;
-    ROS_DEBUG_STREAM("*** Adding to PCD took: " << d.toSec() << " seconds.");
+    ROS_DEBUG_STREAM_NAMED(logger_name_, "Adding to PCD took: " << d.toSec() << " seconds.");
 
     pcl::toROSMsg(*Cloud_Markers, pcd); //convert pointCloudXYZ to PointCloud2
     update_grid = true; //after setting the grid we can update it when params change
@@ -250,7 +252,7 @@ void TAstar::SetGridCellState(int x, int y, int z, int newstate)
     //check if valid
     if (!index_3D_is_valid(index))
     {
-        ROS_ERROR_STREAM(" *** SetGridCellState - wrong index: (x,y,z) = (" << x << ", " << y << ", " << z << ")");
+        ROS_ERROR_STREAM_NAMED(logger_name_, "SetGridCellState - wrong index: (x,y,z) = (" << x << ", " << y << ", " << z << ")");
         return;
     }
     else
@@ -266,7 +268,7 @@ void TAstar::SetGridCellCost(int x, int y, int z, int cost)
     //check if valid
     if (!index_3D_is_valid(index))
     {
-        ROS_ERROR_STREAM(" *** SetGridCellCost - wrong index: (x,y,z) = (" << x << ", " << y << ", " << z << ")");
+        ROS_ERROR_STREAM_NAMED(logger_name_, " SetGridCellCost - wrong index: (x,y,z) = (" << x << ", " << y << ", " << z << ")");
         return;
     }
     else
@@ -288,7 +290,7 @@ void TAstar::SetGridCellState(TGridCoord Pnt, int newstate)
     //check if valid
     if (!index_3D_is_valid(index))
     {
-        ROS_ERROR_STREAM(" *** SetGridCellState (Pnt) - wrong index = " << index << ": (x,y,z) = (" << x << ", " << y << ", " << z << ")");
+        ROS_ERROR_STREAM_NAMED(logger_name_, "SetGridCellState (Pnt) - wrong index = " << index << ": (x,y,z) = (" << x << ", " << y << ", " << z << ")");
         return;
     }
     else
@@ -311,7 +313,7 @@ int TAstar::GetGridCellState(int x, int y, int z)
 
     if (!is_inside_map_boundries(x,y))// || ind > world_map_.height*world_map_.width*AStarDirCount)
     {
-        ROS_ERROR_STREAM("*** Cell [" << z << "]["<< y << "][" << x <<"] is not within map boundries ");
+        ROS_ERROR_STREAM_NAMED(logger_name_, "Cell [" << z << "]["<< y << "][" << x <<"] is not within map boundries ");
         return AStarInvalid;
     }
     else
@@ -332,7 +334,7 @@ int TAstar::GetGridCellState(TGridCoord point)
 
     if (!is_inside_map_boundries(x,y) || ind > world_map_.height*world_map_.width*AStarDirCount)
     {
-        ROS_ERROR_STREAM("Something went wrong with index ["<< z << "]["<< y << "][" << x <<"] (is not inside map boundries)");
+        ROS_ERROR_STREAM_NAMED(logger_name_, "Something went wrong with index ["<< z << "]["<< y << "][" << x <<"] (is not inside map boundries)");
         ROS_BREAK();
     }
     else
@@ -344,7 +346,7 @@ int TAstar::Get_index(int h, int w, std::string str)
 {
     if(!is_inside_map_boundries(w,h))
     {
-        ROS_ERROR_STREAM(str + " > tried to get index(h,w):(" << h << ", " << w << ")");
+        ROS_ERROR_STREAM_NAMED(logger_name_, str + " > tried to get index(h,w):(" << h << ", " << w << ")");
     }
     else
         return h*world_map_.width+w;
@@ -357,7 +359,7 @@ int TAstar::Get_index(int l, int h, int w, std::string str) //str to know where 
 
     if(!is_inside_map_boundries(w,h))
     {
-        ROS_ERROR_STREAM(str + " > tried to get index(l,h,w):(" << l << ", " << h << ", " << w << ") = (index) " << ind);
+        ROS_ERROR_STREAM_NAMED(logger_name_, str + " > tried to get index(l,h,w):(" << l << ", " << h << ", " << w << ") = (index) " << ind);
     }
     return ind;
 }
@@ -613,7 +615,7 @@ uint TAstar::get_robot_index(int h, int w, int robot_x_cells)
         return h*robot_x_cells+w;
     else
     {
-        ROS_ERROR("robot_x_cells not set yet");
+        ROS_ERROR_NAMED(logger_name_, "robot_x_cells not set yet");
         ROS_BREAK();
 
     }
@@ -774,7 +776,7 @@ double TAstar::yaw_from_n_layer(int n_layer)
 
     if (n_layer < 0)
     {
-        ROS_ERROR_STREAM("Layer " <<  n_layer << " < 0 -> Quiting");
+        ROS_ERROR_STREAM_NAMED(logger_name_, "Layer " <<  n_layer << " < 0 -> Quiting");
         ROS_BREAK();
     }
 
@@ -810,13 +812,13 @@ bool TAstar::AStarGo(int maxIter, std::string &error_str)
 
     bool success = false;
 
-    ROS_DEBUG("*** Planner is trying to find a path");
+    ROS_DEBUG_NAMED(logger_name_, "Planner is trying to find a path");
 
 
    // int ind = Get_index(AStarMap_.TargetPoint.z,AStarMap_.TargetPoint.y,AStarMap_.TargetPoint.x);
 
     if (GetGridCellState(AStarMap_.TargetPoint) == AStarClosed)
-        ROS_ERROR("**** Closed point - path will not be valid");
+        ROS_ERROR_NAMED(logger_name_, "Closed point - path will not be valid");
 
     AStarInit();
 
@@ -830,14 +832,14 @@ bool TAstar::AStarGo(int maxIter, std::string &error_str)
             iterations = convert.str() + " iterations";
 
             error_str =  "Couldn't find path in " + iterations;
-            ROS_WARN_STREAM("*** "+ error_str);
+            ROS_WARN_STREAM_NAMED(logger_name_, error_str);
             break;
         }
 
         if (AStarStep() > 2*fixp_1)
         {
             error_str =  "Couldn't find path :(";
-            ROS_WARN_STREAM("*** "+ error_str);
+            ROS_WARN_STREAM_NAMED(logger_name_, error_str);
             break;
         }
 
@@ -846,12 +848,12 @@ bool TAstar::AStarGo(int maxIter, std::string &error_str)
         {
             if (AStarMap_.Profiler.iter <= 1) //understand why this is happening
             {
-                ROS_WARN_STREAM("*** Couldn't find path :( (only " << AStarMap_.Profiler.iter <<" iteration(s))");
+                ROS_WARN_STREAM_NAMED(logger_name_, "Couldn't find path :( (only " << AStarMap_.Profiler.iter <<" iteration(s))");
             }
             else
             {
                 getPath();
-                ROS_INFO_STREAM("*** Path found :) (" << AStarMap_.Profiler.iter << " iterations)");
+                ROS_INFO_STREAM_NAMED(logger_name_, "Path found :) (" << AStarMap_.Profiler.iter << " iterations)");
                 success = true;
                 error_str = "NO ERRORS! Path found :)";
             }
@@ -861,7 +863,7 @@ bool TAstar::AStarGo(int maxIter, std::string &error_str)
         if (AStarMap_.HeapArray.count == 0)
         {
             error_str =  "Couldn't find path :(";
-            ROS_ERROR_STREAM("*** " + error_str + " - Map.HeapArray.count == 0");
+            ROS_ERROR_STREAM_NAMED(logger_name_, error_str + " - Map.HeapArray.count == 0");
             break;
         }
     }
@@ -911,8 +913,8 @@ int TAstar::AStarStep()
     //Finished
     if(((delta_x <= d_x) && (delta_y <= d_y)) && (curPnt.z == AStarMap_.TargetPoint.z))
     {
-        //ROS_DEBUG_STREAM(" > delta_x: "<< delta_x <<" | d_x: "<< d_x);
-        //ROS_DEBUG_STREAM(" > delta_y: "<< delta_y <<" | d_y: "<< d_y);
+        //ROS_DEBUG_STREAM_NAMED(logger_name_, " > delta_x: "<< delta_x <<" | d_x: "<< d_x);
+        //ROS_DEBUG_STREAM_NAMED(logger_name_, " > delta_y: "<< delta_y <<" | d_y: "<< d_y);
 
         ind = Get_index(curPnt,  "AStarStep(curPnt)2");
         result = AStarMap_.Grid[ind].H;
@@ -1028,7 +1030,7 @@ void TAstar::AddToAStarList(TGridCoord Pnt)
 
     if (AStarMap_.HeapArray.count >= AStarHeapArraySize)
     {   
-        //ROS_DEBUG_STREAM("array is full" << AStarMap_.HeapArray.count);
+        //ROS_DEBUG_STREAM_NAMED(logger_name_, "array is full" << AStarMap_.HeapArray.count);
         return;
     }
 
@@ -1073,9 +1075,9 @@ void TAstar::getPath()
 {
     // DELETE
     if ((AStarMap_.ActualTargetPoint.x == AStarMap_.TargetPoint.x) && (AStarMap_.ActualTargetPoint.y == AStarMap_.TargetPoint.y))
-        ROS_DEBUG("*** Target is Exact Point");
+        ROS_DEBUG_NAMED(logger_name_, "Target is Exact Point");
     else
-        ROS_DEBUG("*** Target is NOT Exact Point");
+        ROS_DEBUG_NAMED(logger_name_, "Target is NOT Exact Point");
 
     TGridCoord Pnt, nxt_Pnt;
     Pnt = AStarMap_.ActualTargetPoint;
@@ -1105,7 +1107,7 @@ void TAstar::getPath()
         // CHECK THIS!!!!!
         if (i>150000) //to prevent getting stuck in infinite loop
         {
-            ROS_ERROR("Path is not valid! :(");
+            ROS_ERROR_NAMED(logger_name_, "Path is not valid! :(");
             return;
         }
 
@@ -1114,7 +1116,7 @@ void TAstar::getPath()
     int n_points = i+1;
     float wx,wy,wz;
 
-    ROS_DEBUG_STREAM("*** Path has " << n_points <<" points");
+    ROS_DEBUG_STREAM_NAMED(logger_name_, "Path has " << n_points <<" points");
     path_msg_.header.frame_id = "map";
     path_msg_.poses.resize(n_points);
 
@@ -1287,11 +1289,11 @@ void TAstar::ClearGridState()
                 }
             }
         }
-        ROS_DEBUG("*** Planner is ready to receive a new goal");
+        ROS_DEBUG_NAMED(logger_name_, "Planner is ready to receive a new goal");
         // cleared = true;
     }
     else
-        ROS_ERROR("Couldn't clear GridState because map size is 0");
+        ROS_ERROR_NAMED(logger_name_, "Couldn't clear GridState because map size is 0");
 }
 
 int TAstar::CalcH(TGridCoord Pi, TGridCoord Pf)
@@ -1519,7 +1521,7 @@ void  TAstar::add_to_pointCloud(int cx, int cy, int layer, sensor_msgs::PointClo
 
 void TAstar::paramsCB(oea_planner::planner_paramsConfig &config, uint32_t level)
 {
-    ROS_INFO("*** Changed Planner parameters!");
+    ROS_INFO_NAMED(logger_name_, "Changed Planner parameters!");
 
     level_closest = config.level_closest;
     level_middle = config.level_middle;

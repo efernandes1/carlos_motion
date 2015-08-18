@@ -16,14 +16,17 @@ class PlanAction
 protected:
     TOea_Planner planner_ros_;
     oea_planner::planResult result_;
+    std::string logger_name_;
 public:
     actionlib::SimpleActionServer<oea_planner::planAction> as_;
-    PlanAction(std::string name, ros::NodeHandle &n, ros::NodeHandle &private_n) : planner_ros_(n, private_n),
+    PlanAction(std::string name, ros::NodeHandle &n, ros::NodeHandle &private_n, std::string logger_name) : planner_ros_(n, private_n, logger_name),
         as_(n, name, boost::bind(&PlanAction::executeCB, this, _1), false) //, action_name_(name)
       {
-        ROS_DEBUG_STREAM("*** Starting Planner Action Server: " << name);
+        logger_name_ = logger_name;
+
+        ROS_DEBUG_STREAM_NAMED(logger_name_, "Starting Planner Action Server: " << name);
         as_.start();
-        ROS_DEBUG_STREAM("*** Planner Server started: " << name);
+        ROS_DEBUG_STREAM_NAMED(logger_name_, "Planner Server started: " << name);
       }
 
       ~PlanAction(void)
@@ -35,7 +38,7 @@ public:
 
         if (!planner_ros_.map_received_)
         {
-            ROS_ERROR("*** No map received yet. Aborting!");
+            ROS_ERROR_NAMED(logger_name_, "No map received yet. Aborting!");
             result_.result_state = false;
             result_.error_string = "No navigation map received";
             as_.setAborted(result_);
@@ -45,13 +48,13 @@ public:
         planner_ros_.planner_state.data = BUSY;
         planner_ros_.state_pub_.publish(planner_ros_.planner_state);
 
-        ROS_DEBUG_STREAM("*** Planner Received a New goal: #" << goal_msg->pose_goal.header.seq);
+        ROS_DEBUG_STREAM_NAMED(logger_name_, "Planner Received a New goal: #" << goal_msg->pose_goal.header.seq);
         std::string error_str;
 
         if (as_.isPreemptRequested())
         {
             error_str = "Preempt Request while planning!";
-            ROS_WARN_STREAM("*** "+error_str);
+            ROS_WARN_STREAM_NAMED(logger_name_, error_str);
 
             result_.result_state = false;
             result_.error_string = error_str;
@@ -71,7 +74,7 @@ public:
         if (planner_ros_.Astar_.goal_world_pose_.yaw!=planner_ros_.Astar_.goal_world_pose_.yaw) //if nan
         {
             error_str = "Invalig Goal: yaw is nan";
-            ROS_ERROR_STREAM("*** "+error_str << ": " << to_degrees(planner_ros_.Astar_.goal_world_pose_.yaw));
+            ROS_ERROR_STREAM_NAMED(logger_name_, error_str << ": " << to_degrees(planner_ros_.Astar_.goal_world_pose_.yaw));
             //else just publish the blank path
 
             result_.result_state = false;
@@ -90,7 +93,7 @@ public:
         // check if goal is valid
         if (!planner_ros_.Astar_.is_valid_point(planner_ros_.Astar_.goal_grid_pose_, error_str))
         {
-            ROS_ERROR_STREAM("*** "+error_str);
+            ROS_ERROR_STREAM_NAMED(logger_name_, error_str);
             result_.result_state = false;
             result_.error_string = error_str;
             as_.setAborted(result_);

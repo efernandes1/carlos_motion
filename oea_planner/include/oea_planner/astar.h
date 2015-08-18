@@ -43,8 +43,9 @@ inline double to_radians(double degrees) {return degrees*(M_PI/180.0);}
 class TAstar
 {
 public:
-    explicit TAstar();
+    explicit TAstar(std::string logger_name);
     ~TAstar();
+    std::string logger_name_;
     TAStarMap AStarMap_;
     TMap world_map_;
     TWorldPose robot_init_world_pose_, goal_world_pose_; //robot_world_current_pose, goal_world_target;

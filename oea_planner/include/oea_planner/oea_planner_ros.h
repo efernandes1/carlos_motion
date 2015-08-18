@@ -25,7 +25,7 @@
 class TOea_Planner
 {
 public:
-    /*explicit*/ TOea_Planner(ros::NodeHandle &n, ros::NodeHandle &private_n);
+    /*explicit*/ TOea_Planner(ros::NodeHandle &n, ros::NodeHandle &private_n, std::string logger_name);
     ~TOea_Planner();
     int exec();
     bool executeCycle(std::string &error_str, nav_msgs::Path &planned_path);
@@ -34,7 +34,7 @@ public:
     ros::Publisher state_pub_; // planner state publisher
     ros::ServiceServer ss_;
     bool map_received_;
-
+    std::string logger_name_;
 private:
     std::string global_frame_id, base_frame_id;
 

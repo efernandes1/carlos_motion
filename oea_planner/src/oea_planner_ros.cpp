@@ -4,8 +4,9 @@
 sensor_msgs::PointCloud2 pcd;
 
 // constructor
-TOea_Planner::TOea_Planner(ros::NodeHandle &n, ros::NodeHandle &private_n) //: plan_("/move_platform", n)
+TOea_Planner::TOea_Planner(ros::NodeHandle &n, ros::NodeHandle &private_n, std::string logger_name) : Astar_(logger_name)//: plan_("/move_platform", n)
 {
+    logger_name_ = logger_name;
     ros::start();
 
     //load parameters:
@@ -81,11 +82,11 @@ int TOea_Planner::exec()
 
 bool TOea_Planner::IsPoseValid(oea_planner::isPoseValid::Request& req, oea_planner::isPoseValid::Response& res)
 {
-    ROS_DEBUG("*** IsPoseValid Service Called");
+    ROS_DEBUG_NAMED(logger_name_, "IsPoseValid Service Called");
 
     if (!map_received_)
     {
-        ROS_ERROR("*** No map received yet. Can't validate pose!");
+        ROS_ERROR_NAMED(logger_name_, "No map received yet. Can't validate pose!");
         return false;
     }
 
@@ -96,12 +97,12 @@ bool TOea_Planner::IsPoseValid(oea_planner::isPoseValid::Request& req, oea_plann
 
     if ((state == AStarObstacle)||(state == AStarInflated)|| (state == AStarInvalid))
     {
-        ROS_DEBUG("Invalid pose");
+        ROS_DEBUG_NAMED(logger_name_, "Invalid pose");
         res.isValid = false;
     }
     else
     {
-        ROS_DEBUG("Pose is valid");
+        ROS_DEBUG_NAMED(logger_name_, "Pose is valid");
         res.isValid = true;
     }
     return true;
@@ -113,14 +114,14 @@ void TOea_Planner::goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal_msg)
 {
     if (!map_received_)
     {
-        ROS_ERROR("*** No map received yet. Unable to compute path.");
+        ROS_ERROR_NAMED(logger_name_, "No map received yet. Unable to compute path.");
         return;
     }
 
     planner_state.data = hardware::BUSY; //PLANNING;
     state_pub_.publish(planner_state);
 
-    ROS_DEBUG("*** New Goal received on topic");
+    ROS_DEBUG_NAMED(logger_name_, "New Goal received on topic");
 
     // get world pose from msg
     Astar_.goal_world_pose_.x = goal_msg->pose.position.x;
@@ -135,7 +136,7 @@ void TOea_Planner::goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal_msg)
     {
 
 
-        ROS_ERROR_STREAM("*** Invalig Goal: yaw is " << to_degrees(Astar_.goal_world_pose_.yaw));
+        ROS_ERROR_STREAM_NAMED(logger_name_, "Invalig Goal: yaw is " << to_degrees(Astar_.goal_world_pose_.yaw));
         //else just publish the blank path
 
         path_pub_.publish(path); //publishing 0 poses will cause the controller to stop following the previous path
@@ -161,7 +162,7 @@ void TOea_Planner::goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal_msg)
     }
     else
     {
-        ROS_WARN_STREAM("*** " + error_str);
+        ROS_WARN_STREAM_NAMED(logger_name_, error_str);
        //no need to clear Grid, because Astar was not called
     }
 
@@ -202,7 +203,7 @@ void TOea_Planner::mapCB(const nav_msgs::OccupancyGrid::ConstPtr& map_msg)
     Astar_.AStarClear();
     planner_state.data = hardware::IDLE;
     state_pub_.publish(planner_state);
-    ROS_INFO("*** Planner is ready to receive goals");
+    ROS_INFO_NAMED(logger_name_, "Planner is ready to receive goals");
 }
 
 bool TOea_Planner::executeCycle(std::string &error_str, nav_msgs::Path &planned_path)
@@ -219,9 +220,9 @@ bool TOea_Planner::executeCycle(std::string &error_str, nav_msgs::Path &planned_
         listener.lookupTransform(global_frame_id, base_frame_id, ros::Time(0), transform);
     }
     catch (tf::TransformException ex){
-        ROS_ERROR("%s",ex.what());
-        error_str = "Robot not localized!";
-        ROS_ERROR_STREAM("*** "+ error_str);
+        ROS_ERROR_NAMED(logger_name_, "%s",ex.what());
+        error_str = "Robot is not localized!";
+        ROS_ERROR_STREAM_NAMED(logger_name_, error_str);
         return success;
     }
 
@@ -256,7 +257,7 @@ bool TOea_Planner::executeCycle(std::string &error_str, nav_msgs::Path &planned_
 
     success = Astar_.AStarGo(number_cells, error_str);
     ros::Duration d = ros::Time::now()-time_init;
-    ROS_DEBUG_STREAM("*** Planning took: " << d.toNSec()/1000000 << " miliseconds. ");
+    ROS_DEBUG_STREAM_NAMED(logger_name_, "Planning took: " << d.toNSec()/1000000 << " miliseconds. ");
 
   //  path_pub_.publish(Astar_.path_msg_); //para já não publica aqui. só pub se for recebido por tópico (para nao baralhar ctrl)
     planned_path = Astar_.path_msg_;
