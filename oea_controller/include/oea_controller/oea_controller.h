@@ -104,6 +104,7 @@ public:
     double deaccel_distance_thresh;
     int delta_angle_stuck_th, erro_theta2_stuck_th_low, erro_theta2_stuck_th_sup;
     double front_laser_offset, back_laser_offset;
+    std::string logger_name_;
 private:
     QTimer* FMainTimer;
     qt_ros_interface::TQrosTfPoseSub* FTfPoseSub;
@@ -129,7 +130,7 @@ private:
     ros::Subscriber server_sub_;
     ros::Publisher robot_pose_pub_;
     int state_goto_;
-    bool debug_, always_show_protective_laser_, show_laser_front_, show_laser_back_;
+    bool debug_, debug_vel_, always_show_protective_laser_, show_laser_front_, show_laser_back_;
    // double x_target, y_target, theta_target;
     //double target_x, target_y, target_theta, target_x3, target_y3, target_theta3,;
     bool flag_theta;

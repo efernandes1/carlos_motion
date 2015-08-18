@@ -7,7 +7,9 @@ namespace oea_controller{
 
 TOEAController::TOEAController(ros::NodeHandle nodeHandle) 
 {
-    nodeHandle.param("debug", debug_, true);
+
+    nodeHandle.param("debug", debug_, false);
+    nodeHandle.param("debug_velocities", debug_vel_, false);
     nodeHandle.param("always_show_protective_laser", always_show_protective_laser_, true);
 
     if (debug_) //output debug
@@ -16,7 +18,42 @@ TOEAController::TOEAController(ros::NodeHandle nodeHandle)
             ros::console::notifyLoggerLevelsChanged();
     }
 
-    ROS_DEBUG_STREAM("*** Starting oea_controller");
+    std::string name = ROSCONSOLE_DEFAULT_NAME; //ros.carlos_motion_action_server
+    name = name  + ".control";
+    logger_name_ = "control";
+    //logger is ros.carlos_motion_action_server.control
+
+    if(ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Warn)) //to avoid to much debug msg from actions
+        ros::console::notifyLoggerLevelsChanged();
+
+    if (debug_)
+    {
+        // if we use ROSCONSOLE_DEFAULT_NAME we'll get a ton of debug messages from actionlib which is annoying!!!
+        // so for debug we'll use a named logger
+        if(ros::console::set_logger_level(name, ros::console::levels::Debug)) //name
+            ros::console::notifyLoggerLevelsChanged();
+    }
+    else // if not DEBUG we want INFO
+    {
+        if(ros::console::set_logger_level(name, ros::console::levels::Info)) //name
+            ros::console::notifyLoggerLevelsChanged();
+    }
+
+    name = ROSCONSOLE_DEFAULT_NAME;
+    name = name  + ".velocities";
+
+    if (debug_vel_)
+    {
+        if(ros::console::set_logger_level(name, ros::console::levels::Debug)) //name
+            ros::console::notifyLoggerLevelsChanged();
+    }
+    else
+    {
+        if(ros::console::set_logger_level(name, ros::console::levels::Info)) //name
+            ros::console::notifyLoggerLevelsChanged();
+    }
+
+    ROS_DEBUG_STREAM_NAMED(logger_name_, "Starting oea_controller");
 
 
     // get parameters
@@ -264,8 +301,8 @@ double DifAng(double ang1, double ang2)
 
 bool TOEAController::cancel_action(std::string str)
 {
-    ROS_WARN_STREAM("*** Canceling action: " << str);
-    stop_robot("*** action was cancelled");
+    ROS_WARN_STREAM_NAMED(logger_name_, "Canceling action: " << str);
+    stop_robot("action was cancelled");
     control_done_ = true;
     result_str_ = str;
     result_state_ = false;
@@ -286,7 +323,7 @@ void TOEAController::MainTimerCallBack()
     if (server_sub_.getNumPublishers()==0 and running_action_)
     {
         cancel_action("Lost connection to move_platform_server while moving");
-        ROS_ERROR("Lost connection to move_platform_server while moving - please relaunch it");
+        ROS_ERROR_NAMED(logger_name_, "Lost connection to move_platform_server while moving - please relaunch it");
     }
 
     double theta2target, erro_theta2,erro_dist; //, erro_theta_f,
@@ -326,7 +363,7 @@ void TOEAController::MainTimerCallBack()
 
             if (obstacle_in_warning_zone_)
             {
-                //ROS_DEBUG("*** Obstacle in warning zone");
+                //ROS_DEBUG_NAMED(logger_name_, "Obstacle in warning zone");
                 if (marker_warning_laser_pub_.getTopic()!="")
                 {
                     send_cube_array(current_x, current_y, marker_array_warning_laser, front_laser_link_, 2);
@@ -367,7 +404,7 @@ void TOEAController::MainTimerCallBack()
                 else // if there are more targets, send next target to unstuck the robot from that point
                 {
                     compute_next_target_ = true;
-                    ROS_WARN("*** Robot is stuck - trying next target");
+                    ROS_WARN_NAMED(logger_name_, "Robot is stuck - trying next target");
                 }
             }
 
@@ -401,7 +438,7 @@ void TOEAController::MainTimerCallBack()
             {
                 state_goto_ = STOP; // choose which state to go next
                 robot_is_stuck =  true;
-                ROS_DEBUG("*** Robot is stuck parallel");
+                ROS_DEBUG_NAMED(logger_name_, "Robot is stuck parallel");
             }
 
 /*
@@ -442,7 +479,7 @@ void TOEAController::MainTimerCallBack()
                         }
                         else // still far from goal, don't deaccel
                         {
-                          state_goto_ = PID;
+                            state_goto_ = PID;
                         }
 
                       // }
@@ -462,7 +499,6 @@ void TOEAController::MainTimerCallBack()
                                 state_goto_ = DE_ACCEL;
                             }
                             else
-
                             {
                                 state_goto_ = PID;
                             }
@@ -471,7 +507,7 @@ void TOEAController::MainTimerCallBack()
 
                     if ((obstacle_in_warning_zone_) && (state_goto_ != STOP))
                     {
-                        ROS_DEBUG("*** DEACCEL because of obstacle in warning zone");
+                        ROS_DEBUG_NAMED(logger_name_, "DEACCEL because of obstacle in warning zone");
                         state_goto_ = DE_ACCEL;
                     }
                 }
@@ -483,7 +519,7 @@ void TOEAController::MainTimerCallBack()
             switch(state_goto_)
             {
             case EMERGENCY:
-                ROS_WARN_STREAM_COND(pub_emergency_errors, "*** STOPPED WITH JOYSTICK");
+                ROS_WARN_STREAM_COND_NAMED(pub_emergency_errors, logger_name_, "STOPPED WITH JOYSTICK");
                 pub_emergency_errors = false; //only pub msg once every touch
                 if (running_action_)
                 {
@@ -506,17 +542,17 @@ void TOEAController::MainTimerCallBack()
                     {
                         result_str_ = "Robot is stuck - didn't reach goal";
                         result_state_ = false;
-                        ROS_WARN("*** Robot is stuck close to goal. Stoping without reaching it... :(");
+                        ROS_WARN_NAMED(logger_name_, "Robot is stuck close to goal. Stoping without reaching it... :(");
                     }
                     else
                     {
                         result_str_ = "Reached goal with SUCCESS!!!!";
                         result_state_ = true;
-                        ROS_INFO("*** Reached goal with SUCCESS :) ");
+                        ROS_INFO_NAMED(logger_name_, "Reached goal with SUCCESS :) ");
                     }
 
-                    ROS_INFO_STREAM("*** erro_dist is: " << erro_dist << " meters | tolerance: " << current_tolerance_d); // use tolerance_d_last_point
-                    ROS_INFO_STREAM("*** erro_angle is: " << to_degrees(delta_angle) << " degrees | tolerance: " << to_degrees(current_tolerance_yaw)); //use tolerance_yaw_last_point
+                    ROS_INFO_STREAM_NAMED(logger_name_, "erro_dist is: " << erro_dist << " meters | tolerance: " << current_tolerance_d); // use tolerance_d_last_point
+                    ROS_INFO_STREAM_NAMED(logger_name_, "erro_angle is: " << to_degrees(delta_angle) << " degrees | tolerance: " << to_degrees(current_tolerance_yaw)); //use tolerance_yaw_last_point
                     flag_target_received_ = false;
                     plan_received_ = false;
                     //print = false;
@@ -524,7 +560,7 @@ void TOEAController::MainTimerCallBack()
 
                     control_done_ = true;
                     running_action_ = false;
-                    //ROS_DEBUG_STREAM("*** Control finished: " << control_done_);
+                    //ROS_DEBUG_STREAM("Control finished: " << control_done_);
                 }
                 break; //STOP
 
@@ -614,7 +650,7 @@ void TOEAController::MainTimerCallBack()
               ((flag_obst_front_left || flag_obst_back_right) && ((angularVel > 0) && fabs(angularVel) > 0.05)) ||
               ((flag_obst_front_right || flag_obst_back_left) && ((angularVel < 0) && fabs(angularVel) > 0.05)))
         {
-            ROS_WARN("*** Obstacle detected - setting velocity to 0!!");
+            ROS_WARN_NAMED(logger_name_, "Obstacle detected - setting velocity to 0!!");
             pub_state_ = OBSTACLE;
 
             linearVel = 0;
@@ -637,7 +673,7 @@ void TOEAController::MainTimerCallBack()
         {
             if ( fabs(angularVel) > max_angular_vel) // limit w
             {
-                //*ROS_DEBUG("limiting velocity");
+                ROS_DEBUG_NAMED("velocities", "limiting velocity");
                 limit_w(angularVel);
                 linearVel = k_r*angularVel;
             }
@@ -656,7 +692,7 @@ void TOEAController::MainTimerCallBack()
             commandToSend.angular.z=angularVel;
             FCommandVelPub->SendData(commandToSend);
             state_goto_ = CHOOSE_STATE;
-            //*ROS_DEBUG_STREAM("pub v: " << linearVel << " | w: " << angularVel);
+            ROS_DEBUG_STREAM_NAMED("velocities", "pub v: " << linearVel << " | w: " << angularVel);
 
             if(true){
                 FDebugNextTargetPub->SendData(target2.x, target2.y, target2.yaw, global_frame_id);
@@ -670,7 +706,7 @@ void TOEAController::MainTimerCallBack()
     }
     else{
         FControllerStatePub->SendData(QString::number(NO_LOC).toStdString()); // send to topic which state was chosen
-        ROS_WARN("** Get pose failed!");
+        ROS_WARN_NAMED(logger_name_, "Get pose failed!");
         if (enable_pub_){ //send a cmd to stop - prevent from sending continuosly when robot is lost
             linearVel = 0;
             angularVel = 0;
@@ -680,7 +716,7 @@ void TOEAController::MainTimerCallBack()
             commandToSend.angular.z=angularVel;
             FCommandVelPub->SendData(commandToSend);
             enable_pub_ = 0;
-            ROS_WARN("** Stoped publishing velocities until pose is restored");
+            ROS_WARN_NAMED(logger_name_, "Stoped publishing velocities until pose is restored");
         }
     }
 
@@ -851,7 +887,7 @@ void TOEAController::PoseGoalSubCallBack()
     tf::Quaternion quat(poseGoal.pose.orientation.x, poseGoal.pose.orientation.y, poseGoal.pose.orientation.z, poseGoal.pose.orientation.w);
     double yaw = getYaw(quat);
 
-    ROS_INFO("[TOPIC] Pose Goal Received: x=%f, y=%f, th=%f (degrees)", poseGoal.pose.position.x, poseGoal.pose.position.y, to_degrees(yaw));
+    ROS_INFO_NAMED(logger_name_, "[TOPIC] Pose Goal Received: x=%f, y=%f, th=%f (degrees)", poseGoal.pose.position.x, poseGoal.pose.position.y, to_degrees(yaw));
 
     target2.x = poseGoal.pose.position.x;
     target2.y = poseGoal.pose.position.y;
@@ -886,12 +922,12 @@ void TOEAController::planCallback(const nav_msgs::Path::ConstPtr& path_msg)
 
     if (n_poses == 0)
     {
-        ROS_WARN("*** [TOPIC] Path received has 0 poses!");
+        ROS_WARN_NAMED(logger_name_, "[TOPIC] Path received has 0 poses!");
         plan_received_ = false;
         return;
     }
 
-    ROS_INFO_STREAM("[TOPIC] New Global plan received with " << n_poses << " poses");
+    ROS_INFO_STREAM_NAMED(logger_name_, "[TOPIC] New Global plan received with " << n_poses << " poses");
 
     global_plan = *path_msg; // copy msg to global variable
 
@@ -944,7 +980,7 @@ void TOEAController::GetNextTargetFromPlan(int next)
     if ((pose_index > n_poses-1) ||(next > n_poses-1))
     	return;
 
-    ROS_DEBUG_STREAM("*** Getting next target: next is #" << next);
+    ROS_DEBUG_STREAM_NAMED(logger_name_, "Getting next target: next is #" << next);
 
     geometry_msgs::PoseStamped target;
     target = global_plan.poses[next];
@@ -999,7 +1035,7 @@ void TOEAController::GetNextTargetFromPlan(int next)
         }
     }
 
-   ROS_DEBUG_STREAM("*** Next target is: #" << pose_index << ": (" << target2.x << ", " << target2.y << ", " << to_degrees(target2.yaw)<< ")");
+   ROS_DEBUG_STREAM_NAMED(logger_name_, "Next target is: #" << pose_index << ": (" << target2.x << ", " << target2.y << ", " << to_degrees(target2.yaw)<< ")");
 
    /* //for "feedfoward"
     if (pose_index < n_poses-1)
@@ -1418,7 +1454,7 @@ void TOEAController::joyCallback(const sensor_msgs::Joy::ConstPtr& joy)
 
  void TOEAController::paramsCB(oea_controller::ctrl_paramsConfig &config, uint32_t level)
  {
-     ROS_INFO("Changed parameters!");
+     ROS_INFO_NAMED(logger_name_, "Changed parameters!");
 
      //update parameters:
 //GAINS:
@@ -1482,7 +1518,7 @@ void TOEAController::joyCallback(const sensor_msgs::Joy::ConstPtr& joy)
      tf::Quaternion quat(poseGoal.pose.orientation.x, poseGoal.pose.orientation.y, poseGoal.pose.orientation.z, poseGoal.pose.orientation.w);
      double yaw = getYaw(quat);
 
-     ROS_INFO("*** [ACTION] Pose Goal Received: x=%f, y=%f, th=%f (degrees)", poseGoal.pose.position.x, poseGoal.pose.position.y, to_degrees(yaw));
+     ROS_INFO_NAMED(logger_name_, "[ACTION] Pose Goal Received: x=%f, y=%f, th=%f (degrees)", poseGoal.pose.position.x, poseGoal.pose.position.y, to_degrees(yaw));
 
      target2.x = poseGoal.pose.position.x;
      target2.y = poseGoal.pose.position.y;
@@ -1517,12 +1553,12 @@ bool TOEAController::processActionPlan(const nav_msgs::Path& path_msg)
 
      if (n_poses == 0)
      {
-         ROS_WARN("*** [Action] Path received has 0 poses!");
+         ROS_WARN_NAMED(logger_name_, "[Action] Path received has 0 poses!");
          plan_received_ = false;
          return false;
      }
 
-     ROS_INFO_STREAM("*** [ACTION] New Global plan received with " << n_poses << " poses" );
+     ROS_INFO_STREAM_NAMED(logger_name_, "[ACTION] New Global plan received with " << n_poses << " poses" );
 
      global_plan = path_msg; // copy msg to global variable
      pose_index = 0;
@@ -1573,7 +1609,7 @@ void TOEAController::stop_robot(std::string str)
 {
     plan_received_ = false;
     flag_target_received_ = false;
-    ROS_WARN_STREAM("*** Stopping the robot because: " << str);
+    ROS_WARN_STREAM_NAMED(logger_name_, "Stopping the robot because: " << str);
 
     geometry_msgs::Twist commandToSend;
     commandToSend.linear.x=0;
@@ -1592,7 +1628,7 @@ bool TOEAController::force_stop_robot(std_srvs::Empty::Request& request, std_srv
     }
     else
     {
-        ROS_WARN_STREAM("*** Called service to stop the robot");
+        ROS_WARN_STREAM_NAMED(logger_name_, "Called service to stop the robot");
         stop_robot("service was called");
     }
 
