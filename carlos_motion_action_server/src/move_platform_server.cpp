@@ -40,6 +40,7 @@ protected:
     bool planning_, controlling_, set_terminal_state_, debug_;
     uint8_t control_state_, plan_state_;
     mission_ctrl_msgs::hardware_state hw_state_;
+    std::string logger_name_;
 public:
     MovePlatformAction() :
         as_(n_, CARLOS_MOVE_ACTION, false), //movePlatform action SERVER
@@ -49,30 +50,41 @@ public:
 
         n_.param("/move_platform_server/debug", debug_, false);
 
+        std::string name = ROSCONSOLE_DEFAULT_NAME; //ros.carlos_motion_action_server
+        name = name  + ".debug";
+        logger_name_ = "debug";
+        //logger is ros.carlos_motion_action_server.debug
+
         if (debug_)
         {
-            if(ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Debug))
+            // if we use ROSCONSOLE_DEFAULT_NAME we'll get a ton of debug messages from actionlib which is annoying!!!
+            // so for debug we'll use a named logger
+            if(ros::console::set_logger_level(name, ros::console::levels::Debug)) //name
+                ros::console::notifyLoggerLevelsChanged();
+        }
+        else // if not DEBUG we want INFO
+        {
+            if(ros::console::set_logger_level(name, ros::console::levels::Info)) //name
                 ros::console::notifyLoggerLevelsChanged();
         }
 
-        ROS_INFO("Starting Move Platform Server");
+        ROS_DEBUG_NAMED(logger_name_, "Starting Move Platform Server");
 
         as_.registerGoalCallback(boost::bind(&MovePlatformAction::moveGoalCB, this));
         as_.registerPreemptCallback(boost::bind(&MovePlatformAction::movePreemptCB, this));
 
         //start the move server
         as_.start();
-        ROS_DEBUG("Move Platform Action Server Started");
+        ROS_DEBUG_NAMED(logger_name_, "Move Platform Action Server Started");
 
         // now wait for the other servers (planner + controller) to start
-        ROS_WARN("Waiting for planner server to start");
+        ROS_WARN_NAMED(logger_name_, "Waiting for planner server to start");
         ac_planner_.waitForServer();
-        ROS_INFO_STREAM("Planner server started: " <<  ac_planner_.isServerConnected());
+        ROS_INFO_STREAM_NAMED(logger_name_, "Planner server started: " <<  ac_planner_.isServerConnected());
 
-        ROS_WARN("Waiting for controller server to start");
-
+        ROS_WARN_NAMED(logger_name_, "Waiting for controller server to start");
         ac_control_.waitForServer();
-        ROS_INFO_STREAM("Control server started: " <<  ac_control_.isServerConnected());
+        ROS_INFO_STREAM_NAMED(logger_name_, "Controller server started: " <<  ac_control_.isServerConnected());
 
         path_pub_ = n_.advertise<nav_msgs::Path>("/plan",1); //just to view the path
 
@@ -93,7 +105,8 @@ public:
 
     ~MovePlatformAction()
     {
-     //  std::cout << "Destructor: should cancell goals?" << std::endl;
+        // Destructor: should cancell goals?
+        // No need because controller stops when move_server dies
     }
 
     //publish state timer
@@ -168,14 +181,13 @@ public:
     void moveGoalCB()
     {
         set_terminal_state_ = true;
-        ROS_INFO("New Action Goal Received");
 
         move_goal_.nav_goal = as_.acceptNewGoal()->nav_goal;
-        ROS_INFO_STREAM("Accepted Goal #" <<move_goal_.nav_goal.header.seq);
+        ROS_INFO_STREAM_NAMED(logger_name_, "Received Goal #" <<move_goal_.nav_goal.header.seq);
 
         if (as_.isPreemptRequested() ||!ros::ok())
         {
-            ROS_WARN_STREAM("Preempt Requested on goal #" << move_goal_.nav_goal.header.seq);
+            ROS_WARN_STREAM_NAMED(logger_name_, "Preempt Requested on goal #" << move_goal_.nav_goal.header.seq);
             if (planning_)
                 ac_planner_.cancelGoalsAtAndBeforeTime(ros::Time::now());
             if (controlling_)
@@ -191,7 +203,7 @@ public:
 
         if (planner_state_sub.getNumPublishers()==0)
         {
-            ROS_WARN_STREAM("Goal #" << move_goal_.nav_goal.header.seq << " not sent - planner is down");
+            ROS_WARN_STREAM_NAMED(logger_name_, "Goal #" << move_goal_.nav_goal.header.seq << " not sent - planner is down");
             planning_ = false;
             move_result_.result_state = 0;
             move_result_.error_string = "Planner is down";
@@ -203,7 +215,7 @@ public:
                                  actionlib::SimpleActionClient<oea_planner::planAction>::SimpleActiveCallback(),
                                  actionlib::SimpleActionClient<oea_planner::planAction>::SimpleFeedbackCallback());
             planning_ = true;
-            ROS_DEBUG_STREAM("Goal #" << move_goal_.nav_goal.header.seq << " sent to planner");
+            ROS_DEBUG_STREAM_NAMED(logger_name_, "Goal #" << move_goal_.nav_goal.header.seq << " sent to planner");
         }
         return;
     }
@@ -211,7 +223,7 @@ public:
     void planningDoneCB(const actionlib::SimpleClientGoalState& state, const oea_planner::planResultConstPtr &result)
     {
         planning_ = false;
-        ROS_DEBUG_STREAM("Plan Action finished: " << state.toString());
+        ROS_DEBUG_STREAM_NAMED(logger_name_, "Plan Action finished: " << state.toString());
 
         move_result_.result_state = result->result_state;
 
@@ -221,7 +233,7 @@ public:
 
             if (ctrl_state_sub.getNumPublishers()==0)
             {
-                ROS_WARN_STREAM("Goal #" << move_goal_.nav_goal.header.seq << " not sent - Controller is down");
+                ROS_WARN_STREAM_NAMED(logger_name_, "Goal #" << move_goal_.nav_goal.header.seq << " not sent - Controller is down");
                 controlling_ = false;
                 move_result_.result_state = 0;
                 move_result_.error_string = "Controller is down!!!";
@@ -233,7 +245,7 @@ public:
                                      actionlib::SimpleActionClient<oea_controller::controlPlatformAction>::SimpleActiveCallback(),
                                      actionlib::SimpleActionClient<oea_controller::controlPlatformAction>::SimpleFeedbackCallback()); //boost::bind(&MovePlatformAction::ControlFeedbackCB, this,_1));
                 controlling_ = true;
-                ROS_DEBUG_STREAM("Goal #" << move_goal_.nav_goal.header.seq << " sent to Controller");
+                ROS_DEBUG_STREAM_NAMED(logger_name_,"Goal #" << move_goal_.nav_goal.header.seq << " sent to Controller");
                 path_pub_.publish(result->planned_path);
             }
         }
@@ -242,7 +254,7 @@ public:
             ac_control_.cancelGoalsAtAndBeforeTime(ros::Time::now());
 
             move_result_.error_string = "Planning Failed: " + result->error_string;
-            ROS_WARN_STREAM("Aborting because " << move_result_.error_string);
+            ROS_WARN_STREAM_NAMED(logger_name_, "Aborting because " << move_result_.error_string);
 
             as_.setAborted(move_result_);
         }
@@ -253,7 +265,7 @@ public:
     void ControlDoneCB(const actionlib::SimpleClientGoalState& state, const oea_controller::controlPlatformResultConstPtr &result)
     {
         controlling_ = false;
-        ROS_DEBUG_STREAM("Control Action finished: " << state.toString());
+        ROS_DEBUG_STREAM_NAMED(logger_name_, "Control Action finished: " << state.toString());
 
         move_result_.result_state = result->result_state;
         move_result_.error_string = result->error_string;
@@ -261,24 +273,24 @@ public:
         if (move_result_.result_state)
         {
             as_.setSucceeded(move_result_);
-            ROS_INFO("Goal was successful :)");
+            ROS_INFO_NAMED(logger_name_, "Goal was successful :)");
         }
         else
         {
-             ROS_WARN("Goal was NOT successful :)");
+             ROS_WARN_NAMED(logger_name_, "Goal was NOT successful :)");
 
             // if is preempted => as_ was already set, cannot set again
             if (state.toString() != "PREEMPTED")
             {
                 as_.setAborted(move_result_);
-                ROS_DEBUG("Goal was Aborted");
+                ROS_DEBUG_NAMED(logger_name_, "Goal was Aborted");
             }
             else
             {
                 if (set_terminal_state_)
                 {
                      as_.setPreempted(move_result_);
-                     ROS_DEBUG("Goal was Preempted");
+                     ROS_DEBUG_NAMED(logger_name_, "Goal was Preempted");
                 }
             }
         }
@@ -286,16 +298,16 @@ public:
 
     void movePreemptCB()
     {
-        ROS_WARN_STREAM("Preempt Requested");
+        ROS_WARN_STREAM_NAMED(logger_name_, "Preempt Requested");
 
         if (planning_)
         {
-            ROS_DEBUG("Planning - cancelling all plan goals");
+            ROS_DEBUG_NAMED(logger_name_, "Planning - cancelling all plan goals");
             ac_planner_.cancelGoalsAtAndBeforeTime(ros::Time::now());
         }
         if (controlling_)
         {
-            ROS_DEBUG("Controlling - cancelling all ctrl goals");
+            ROS_DEBUG_NAMED(logger_name_, "Controlling - cancelling all ctrl goals");
             ac_control_.cancelGoalsAtAndBeforeTime(ros::Time::now());
         }
 
