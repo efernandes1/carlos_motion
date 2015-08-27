@@ -70,6 +70,7 @@ public:
         planner_ros_.Astar_.goal_world_pose_.x = goal_msg->pose_goal.pose.position.x;
         planner_ros_.Astar_.goal_world_pose_.y = goal_msg->pose_goal.pose.position.y;
         planner_ros_.Astar_.goal_world_pose_.yaw = tf::getYaw(goal_msg->pose_goal.pose.orientation);
+	ROS_INFO_STREAM_NAMED("debug_valina", "YAW: "<< planner_ros_.Astar_.goal_world_pose_.yaw << " | deg: " << to_degrees(planner_ros_.Astar_.goal_world_pose_.yaw));
 
         if (planner_ros_.Astar_.goal_world_pose_.yaw!=planner_ros_.Astar_.goal_world_pose_.yaw) //if nan
         {

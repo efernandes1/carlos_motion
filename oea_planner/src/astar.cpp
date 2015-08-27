@@ -846,17 +846,17 @@ bool TAstar::AStarGo(int maxIter, std::string &error_str)
         //check for neighbours of target Point!!!!!
         if(GetGridCellState(AStarMap_.ActualTargetPoint) == AStarClosed)
         {
-            if (AStarMap_.Profiler.iter <= 1) //understand why this is happening
+          /*  if (AStarMap_.Profiler.iter <= 1) //understand why this is happening
             {
                 ROS_WARN_STREAM_NAMED(logger_name_, "Couldn't find path :( (only " << AStarMap_.Profiler.iter <<" iteration(s))");
             }
             else
-            {
+            {*/
                 getPath();
                 ROS_INFO_STREAM_NAMED(logger_name_, "Path found :) (" << AStarMap_.Profiler.iter << " iterations)");
                 success = true;
                 error_str = "NO ERRORS! Path found :)";
-            }
+           // }
             break;
         }
 
