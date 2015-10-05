@@ -959,10 +959,15 @@ int TAstar::AStarStep()
         // i=4 // rotate backwards counter-clockwise (next layer)
         // i=5 // rotate backwards clockwise (previous layer)
 
-        if (i==0 || i==3) // if maintain same orientation
+        if (penalize_heading_change)
+        {
+            if (i==0 || i==3) // if maintain same orientation
+                heading_change_cost = 1;
+            else // if there's a change of heading
+                heading_change_cost = 2; // penalize it
+        }
+        else
             heading_change_cost = 1;
-        else // if there's a change of heading
-            heading_change_cost = 2; // penalize it
 
 
         ith = ((curPnt.z + VisitNeighbours[i]) & (AStarDirCount-1)); //index of neighbour to visit
@@ -1570,6 +1575,8 @@ void  TAstar::add_to_pointCloud(int cx, int cy, int layer, sensor_msgs::PointClo
 void TAstar::paramsCB(oea_planner::planner_paramsConfig &config, uint32_t level)
 {
     ROS_INFO_NAMED(logger_name_, "Changed Planner parameters!");
+
+    penalize_heading_change = config.penalize_heading_change;
 
     level_closest = config.level_closest;
     level_middle = config.level_middle;

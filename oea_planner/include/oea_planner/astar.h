@@ -63,6 +63,7 @@ public:
     int level_closest, level_middle, level_farthest;
     bool use_frontal_laser, use_back_laser;
     long int cost_scale;
+    bool penalize_heading_change;
 
     dynamic_reconfigure::Server<oea_planner::planner_paramsConfig> params_server;
     dynamic_reconfigure::Server<oea_planner::planner_paramsConfig>::CallbackType f;
