@@ -1361,6 +1361,54 @@ void TAstar::high_cost_inflation(int layer, int h, int w)
     }
 }
 
+
+void TAstar::add_cubes_array(int x, int y, int color)
+{
+   //marker_array_cells_.markers.clear();
+
+    visualization_msgs::Marker marker_arrow;
+
+    marker_arrow.header.frame_id = "map";
+    marker_arrow.header.stamp = ros::Time().now();
+
+    marker_arrow.ns = "cells_namespace";
+    marker_arrow.id = ++marker_id_;
+    marker_arrow.type = visualization_msgs::Marker::CUBE; // shape;
+    marker_arrow.action = visualization_msgs::Marker::ADD;
+
+    marker_arrow.scale.x = world_map_.resolution; //shaft  // 0.1;
+    marker_arrow.scale.y = world_map_.resolution;  //head //0.5;
+    marker_arrow.scale.z = world_map_.resolution;  //head; //0.25;
+
+    //int l = n_layer_from_yaw(wz);
+
+    //int color=0x00FF00;
+
+    float r,g,b;
+    r = ((color >> 16) & 0xFF) / 255.0;
+    g = ((color >> 8) & 0xFF) / 255.0;;
+    b = ((color) & 0xFF) / 255.0;
+
+    marker_arrow.color.r = r;
+    marker_arrow.color.g = g;
+    marker_arrow.color.b = b;
+    marker_arrow.color.a = 0.8;
+
+
+float wx, wy;
+ConvertMatrixCoordToWorl(x, y, wx, wy);
+     marker_arrow.pose.position.x = wx;
+     marker_arrow.pose.position.y = wy;
+     marker_arrow.pose.position.z = 0;
+    //marker_arrow.pose.push_back(p); //start point
+  //  std::cout << MAGENTA << marker_arrow.points[marker_arrow.points.size()-1] << RESET << std::endl;
+
+    //marker_arrow.lifetime = ros::Duration(0.1);
+    marker_array_cells_.markers.push_back(marker_arrow);
+
+}
+
+
 void TAstar::send_arrows_array(float wx, float wy, float wz)
 {
     //temporary marker
@@ -1441,7 +1489,7 @@ void TAstar::send_arrows_array(float wx, float wy, float wz)
     marker_arrow.color.r = r;
     marker_arrow.color.g = g;
     marker_arrow.color.b = b;
-    marker_arrow.color.a = 1.0;
+    marker_arrow.color.a = 0.5;
 
     geometry_msgs::Point p;
     p.x = wx;

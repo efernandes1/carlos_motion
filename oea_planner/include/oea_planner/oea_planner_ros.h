@@ -5,6 +5,7 @@
 #include <std_msgs/String.h>
 #include <std_msgs/UInt8.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <nav_msgs/OccupancyGrid.h> // map
 #include <nav_msgs/Path.h>
 #include <tf/transform_listener.h>
@@ -37,18 +38,22 @@ public:
     std::string logger_name_;
 private:
     std::string global_frame_id, base_frame_id;
+    bool use_localization, mark_end_cubes;
 
     // ** publishers:
     ros::Publisher pcd_pub_; // inflation point cloud publisher
     ros::Publisher path_pub_, visual_path_pub_; // path publisher for controller (topic) / and to view in both topic and action (visual)
     ros::Publisher arrows_pub_; // arrows publisher
+    ros::Publisher cells_pub_; // mark individual cells
 
     // ** subscribers:
     ros::Subscriber map_sub_; // map subscriber
     ros::Subscriber goal_sub_; // goal subscriber
+    ros::Subscriber start_pose_sub_; // substitutes localization pose
 
     // ** Callbacks:
     void goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal_msg);
+    void start_poseCB(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& start_msg);
     void mapCB(const nav_msgs::OccupancyGrid::ConstPtr& map_msg);
 
     // other functions

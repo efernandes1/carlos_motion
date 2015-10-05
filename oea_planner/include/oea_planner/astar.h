@@ -58,7 +58,7 @@ public:
     bool inflate_map_borders_, allow_unknown_, stop_at_exact_target_, publish_entire_pcd_; //params
     int n_inflated_cells_;
     nav_msgs::Path path_msg_;
-    visualization_msgs::MarkerArray marker_array_arrows_;
+    visualization_msgs::MarkerArray marker_array_arrows_, marker_array_cells_;
  	int last_path_number_of_points_;
     int level_closest, level_middle, level_farthest;
     bool use_frontal_laser, use_back_laser;
@@ -127,6 +127,7 @@ public:
 //other functions
     void getPath();
     void send_arrows_array(float wx, float wy, float wz);
+    void add_cubes_array(int x, int y, int color);
     void delete_arrows_array(int number_of_arrows);
 
     void paramsCB(oea_planner::planner_paramsConfig &config, uint32_t level);

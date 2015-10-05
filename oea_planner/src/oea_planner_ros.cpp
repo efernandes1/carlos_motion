@@ -20,6 +20,9 @@ TOea_Planner::TOea_Planner(ros::NodeHandle &n, ros::NodeHandle &private_n, std::
     private_n.param("publish_entire_pcd", Astar_.publish_entire_pcd_, false);//0.8
     private_n.param("use_frontal_laser", Astar_.use_frontal_laser, true);
     private_n.param("use_back_laser", Astar_.use_back_laser, true);
+    private_n.param("use_localization", use_localization, true);
+    private_n.param("mark_end_cubes", mark_end_cubes, true);
+
 
     //TODO: DEBUG THIS
     //print parameters
@@ -45,6 +48,7 @@ TOea_Planner::TOea_Planner(ros::NodeHandle &n, ros::NodeHandle &private_n, std::
 
     // subscribers:
     goal_sub_ = n.subscribe<geometry_msgs::PoseStamped>("/move_base_simple/goal", 1, &TOea_Planner::goalCB, this);
+    start_pose_sub_ = n.subscribe<geometry_msgs::PoseWithCovarianceStamped>("/start_pose", 1, &TOea_Planner::start_poseCB, this);
     map_sub_ = n.subscribe<nav_msgs::OccupancyGrid>("/map", 100, &TOea_Planner::mapCB, this);
 
     // publishers:
@@ -53,7 +57,7 @@ TOea_Planner::TOea_Planner(ros::NodeHandle &n, ros::NodeHandle &private_n, std::
     visual_path_pub_ = n.advertise<nav_msgs::Path>("/plan",1, true); //latched topic, same as for the actions -> this way we can  have only one topic for visualization
     arrows_pub_ = private_n.advertise<visualization_msgs::MarkerArray>("arrows_marker_array", 1, true);
     state_pub_ = private_n.advertise<std_msgs::UInt8>("state", 1);
-
+    cells_pub_ = private_n.advertise<visualization_msgs::MarkerArray>("cells_marker_array", 1, true);
     // services:
     ss_ = private_n.advertiseService("IsPoseValid", &TOea_Planner::IsPoseValid, this);
 
@@ -108,8 +112,6 @@ bool TOea_Planner::IsPoseValid(oea_planner::isPoseValid::Request& req, oea_plann
     return true;
 }
 
-
-// Goal Callback
 void TOea_Planner::goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal_msg)
 {
     if (!map_received_)
@@ -174,6 +176,39 @@ void TOea_Planner::goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal_msg)
     state_pub_.publish(planner_state);
 }
 
+
+// start_poseCB Callback
+void TOea_Planner::start_poseCB(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& start_msg)
+{
+   // Astar_.marker_id_ = 0;
+    Astar_.marker_array_cells_.markers.clear();
+    if (!map_received_)
+    {
+        ROS_ERROR_NAMED(logger_name_, "No map received yet. Unable to compute path.");
+        return;
+    }
+
+    planner_state.data = hardware::BUSY; //PLANNING;
+    state_pub_.publish(planner_state);
+
+    ROS_DEBUG_NAMED(logger_name_, "New Goal received on topic");
+
+    // get world pose from msg
+    Astar_.robot_init_world_pose_.x = start_msg->pose.pose.position.x;
+    Astar_.robot_init_world_pose_.y = start_msg->pose.pose.position.y;
+    Astar_.robot_init_world_pose_.yaw = tf::getYaw(start_msg->pose.pose.orientation);
+
+    int x, y;
+    Astar_.ConvertWorlCoordToMatrix( Astar_.robot_init_world_pose_.x, Astar_.robot_init_world_pose_.y, x, y);
+    if (mark_end_cubes) //mark start cell 
+    {
+        Astar_.add_cubes_array(x, y, 0x989898); // start
+        cells_pub_.publish(Astar_.marker_array_cells_);
+    }
+// marcar celula
+
+}
+
 // Map Callback
 void TOea_Planner::mapCB(const nav_msgs::OccupancyGrid::ConstPtr& map_msg)
 {
@@ -215,21 +250,30 @@ bool TOea_Planner::executeCycle(std::string &error_str, nav_msgs::Path &planned_
     tf::TransformListener listener;
     tf::StampedTransform transform;
 
-    try{
-        listener.waitForTransform(global_frame_id, base_frame_id, ros::Time(0), ros::Duration(0.5) );
-        listener.lookupTransform(global_frame_id, base_frame_id, ros::Time(0), transform);
-    }
-    catch (tf::TransformException ex){
-        ROS_ERROR_NAMED(logger_name_, "%s",ex.what());
-        error_str = "Robot is not localized!";
-        ROS_ERROR_STREAM_NAMED(logger_name_, error_str);
-        return success;
-    }
+    if (use_localization)
+    {
+        try{
+            listener.waitForTransform(global_frame_id, base_frame_id, ros::Time(0), ros::Duration(0.5) );
+            listener.lookupTransform(global_frame_id, base_frame_id, ros::Time(0), transform);
+        }
+        catch (tf::TransformException ex){
+            ROS_ERROR_NAMED(logger_name_, "%s",ex.what());
+            error_str = "Robot is not localized!";
+            ROS_ERROR_STREAM_NAMED(logger_name_, error_str);
+            return success;
+        }
 
-    // set init pose from tf
-    Astar_.robot_init_world_pose_.x = transform.getOrigin().x();
-    Astar_.robot_init_world_pose_.y = transform.getOrigin().y();
-    Astar_.robot_init_world_pose_.yaw = tf::getYaw(transform.getRotation());
+        // set init pose from tf
+        Astar_.robot_init_world_pose_.x = transform.getOrigin().x();
+        Astar_.robot_init_world_pose_.y = transform.getOrigin().y();
+        Astar_.robot_init_world_pose_.yaw = tf::getYaw(transform.getRotation());
+
+    }
+    /* else
+    {
+		use "2D pose estimate" or directly "/start_pose" topic to set a starting pose
+    } */
+
 
     // and convert it to matrix coordinates
     Astar_.ConvertWorlCoordToMatrix(Astar_.robot_init_world_pose_, Astar_.robot_init_grid_pose_);
@@ -253,7 +297,12 @@ bool TOea_Planner::executeCycle(std::string &error_str, nav_msgs::Path &planned_
     // delete arrows from previous path
     int n = Astar_.last_path_number_of_points_;
     Astar_.delete_arrows_array(n);
-    arrows_pub_.publish(Astar_.marker_array_arrows_);
+
+    if (mark_end_cubes) // mark goal point
+    {
+        Astar_.add_cubes_array(Astar_.goal_grid_pose_.x,Astar_.goal_grid_pose_.y, 0x909090);
+    }
+    cells_pub_.publish(Astar_.marker_array_cells_);
 
     success = Astar_.AStarGo(number_cells, error_str);
     ros::Duration d = ros::Time::now()-time_init;

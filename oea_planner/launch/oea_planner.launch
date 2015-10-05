@@ -16,6 +16,9 @@
 
 		<param name="use_frontal_laser" value="true"/> <!-- if a laser is missing, set this to false -->
 		<param name="use_back_laser" value="true"/>
+		<param name="use_localization" value="false"/>
+		<param name="mark_end_cubes" value="true"/>
+		<param name="debug" value="true"/>
 
 	</node> 
 
