@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   visualization_msgs
   dynamic_reconfigure
+  oea_msgs
 )
 find_package( PCL REQUIRED )
 

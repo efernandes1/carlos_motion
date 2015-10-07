@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   std_srvs
   dynamic_reconfigure
+  oea_msgs
 )
 
 ## System dependencies are found with CMake's conventions

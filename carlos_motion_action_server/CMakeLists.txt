@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   oea_planner
   oea_controller
   std_msgs
+  oea_msgs
 #  message_generation
 )
 
