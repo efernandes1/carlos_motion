@@ -218,12 +218,18 @@ void TAstar::SetGridFromMap(const nav_msgs::OccupancyGrid::ConstPtr& map, sensor
                     if ((l==0) || (l==4))
                         enter = true;
                     else
-                        enter = false;
+                        enter = true; //false;
                 }
 
+                // (A) view inflation
                 int state = GetGridCellState(w,h,l);
 
-                if (state == AStarInflated && enter)
+                // (B) view high cost inflation - comment line above
+                // int index = Get_index(l,h,w, "SetGridCellCost(x,y,z)");
+                // int state = AStarMap_.Grid[index].Cost;
+
+                if (state == AStarInflated && enter) //  (A)
+               // if ((state != 0) && enter) // (B)
                 {
                     add_to_pointCloud(w,h,l, pcd);
                 }
@@ -273,7 +279,9 @@ void TAstar::SetGridCellCost(int x, int y, int z, int cost)
     }
     else
     {
-        AStarMap_.Grid[index].Cost = cost;
+    	// only update cost if is higher 
+        if (cost > AStarMap_.Grid[index].Cost)
+            AStarMap_.Grid[index].Cost = cost;
     }
 }
 
@@ -1129,15 +1137,29 @@ void TAstar::getPath()
 
     for (int j = 0; j<= i; j++)
     {
+        int indx;
         if (j==0) // we want the first point to be the robot current position //NOW WE DON'T HAVE THIS UPDATED!!!!
         {
             wx = robot_init_world_pose_.x;
             wy = robot_init_world_pose_.y;
             wz = robot_init_world_pose_.yaw;
+
+            x = robot_init_grid_pose_.x;
+            y = robot_init_grid_pose_.y;
+            z = robot_init_grid_pose_.z;          
+            indx = Get_index(z,y,x, "SetGridCellCost(x,y,z)");
+            std::cout << CYAN << " Start: [l][h][w] = [" << z << "][" << y << "][" << x << "] : " << +AStarMap_.Grid[indx].Cost  << RESET <<  std::endl;
+
         }
         else
         {
             ConvertMatrixCoordToWorl(grid_points[i-j].x, grid_points[i-j].y, grid_points[i-j].z, wx, wy, wz);
+            x = grid_points[i-j].x;
+            y = grid_points[i-j].y;
+            z = grid_points[i-j].z;
+            indx = Get_index(z,y,x, "SetGridCellCost(x,y,z)");
+            std::cout << CYAN << "[l][h][w] = [" << z << "][" << y << "][" << x << "] : " << +AStarMap_.Grid[indx].Cost  << RESET <<  std::endl;
+
         }
 
         tf::Quaternion quat = tf::createQuaternionFromYaw(wz);
@@ -1499,12 +1521,12 @@ void TAstar::send_arrows_array(float wx, float wy, float wz)
     geometry_msgs::Point p;
     p.x = wx;
     p.y = wy;
-    p.z = 0;
+    p.z = 0; // l*0.1; // marker at the same height as pcd
     marker_arrow.points.push_back(p); //start point
 
     p.x = wx+world_map_.resolution*cos(wz);
     p.y = wy+world_map_.resolution*sin(wz);
-    p.z = 0;
+    p.z = 0; // l*0.1; // marker at the same height as pcd
     marker_arrow.points.push_back(p); //end point
 
     //marker_arrow.lifetime = ros::Duration(0.1);

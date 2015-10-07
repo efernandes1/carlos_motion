@@ -174,6 +174,16 @@ void TOea_Planner::goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal_msg)
 
     planner_state.data = hardware::IDLE;
     state_pub_.publish(planner_state);
+
+    // print goal cell info (coord and cost) to terminal
+    int x, y, l;
+    x = Astar_.goal_grid_pose_.x;
+    y = Astar_.goal_grid_pose_.y;
+    l = Astar_.goal_grid_pose_.z;
+    int index = Astar_.Get_index(l,y,x, "SetGridCellCost(x,y,z)");
+    std::cout << BOLDCYAN << "goal cell is: [l][h][w] = [" << l << "][" << y << "][" << x << "] , with cost: " << + Astar_.AStarMap_.Grid[index].Cost  << RESET <<  std::endl;
+
+
 }
 
 
@@ -198,14 +208,18 @@ void TOea_Planner::start_poseCB(const geometry_msgs::PoseWithCovarianceStamped::
     Astar_.robot_init_world_pose_.y = start_msg->pose.pose.position.y;
     Astar_.robot_init_world_pose_.yaw = tf::getYaw(start_msg->pose.pose.orientation);
 
-    int x, y;
-    Astar_.ConvertWorlCoordToMatrix( Astar_.robot_init_world_pose_.x, Astar_.robot_init_world_pose_.y, x, y);
+    int x, y, l;
+    Astar_.ConvertWorlCoordToMatrix(Astar_.robot_init_world_pose_.x, Astar_.robot_init_world_pose_.y, Astar_.robot_init_world_pose_.yaw , x, y, l);
     if (mark_end_cubes) //mark start cell 
     {
         Astar_.add_cubes_array(x, y, 0x989898); // start
         cells_pub_.publish(Astar_.marker_array_cells_);
     }
-// marcar celula
+
+	// print start pose info (coor and cost) to terminal
+    int index = Astar_.Get_index(l,y,x, "SetGridCellCost(x,y,z)");
+    std::cout << BOLDMAGENTA << "selected cell is: [l][h][w] = [" << l << "][" << y << "][" << x << "] , with cost: " << + Astar_.AStarMap_.Grid[index].Cost  << RESET <<  std::endl;
+
 
 }
 
