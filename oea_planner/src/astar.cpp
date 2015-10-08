@@ -815,13 +815,10 @@ void TAstar::AStarInit()
 
 } // AStarInit
 
-bool TAstar::AStarGo(int maxIter, std::string &error_str)
+bool TAstar::AStarGo(int maxIter, std::string &error_str, oea_msgs::Oea_path& path)
 {
-
     bool success = false;
-
     ROS_DEBUG_NAMED(logger_name_, "Planner is trying to find a path");
-
 
    // int ind = Get_index(AStarMap_.TargetPoint.z,AStarMap_.TargetPoint.y,AStarMap_.TargetPoint.x);
 
@@ -860,7 +857,7 @@ bool TAstar::AStarGo(int maxIter, std::string &error_str)
             }
             else
             {*/
-                getPath();
+                getPath(path);
                 ROS_INFO_STREAM_NAMED(logger_name_, "Path found :) (" << AStarMap_.Profiler.iter << " iterations)");
                 success = true;
                 error_str = "NO ERRORS! Path found :)";
@@ -1084,7 +1081,7 @@ void TAstar::RemoveBestFromAStarList(TGridCoord &Pnt )
 
 }
 
-void TAstar::getPath()
+void TAstar::getPath(oea_msgs::Oea_path& path)
 {
     // DELETE
     if ((AStarMap_.ActualTargetPoint.x == AStarMap_.TargetPoint.x) && (AStarMap_.ActualTargetPoint.y == AStarMap_.TargetPoint.y))
@@ -1130,9 +1127,10 @@ void TAstar::getPath()
     float wx,wy,wz;
 
     ROS_DEBUG_STREAM_NAMED(logger_name_, "Path has " << n_points <<" points");
-    path_msg_.header.frame_id = "map";
-    path_msg_.poses.resize(n_points);
-
+    path.path.header.frame_id = "map";
+    path.path.poses.resize(n_points);
+    path.cost.resize(n_points);
+    
     last_path_number_of_points_ = n_points;
 
     for (int j = 0; j<= i; j++)
@@ -1163,18 +1161,18 @@ void TAstar::getPath()
         }
 
         tf::Quaternion quat = tf::createQuaternionFromYaw(wz);
-        path_msg_.poses[j].pose.position.x = wx;
-        path_msg_.poses[j].pose.position.y = wy;
-        path_msg_.poses[j].pose.position.z = 0;
-        path_msg_.poses[j].pose.orientation.x = quat.x();
-        path_msg_.poses[j].pose.orientation.y = quat.y();
-        path_msg_.poses[j].pose.orientation.z = quat.z();
-        path_msg_.poses[j].pose.orientation.w = quat.w();
-
+        path.path.poses[j].pose.position.x = wx;
+        path.path.poses[j].pose.position.y = wy;
+        path.path.poses[j].pose.position.z = 0;
+        path.path.poses[j].pose.orientation.x = quat.x();
+        path.path.poses[j].pose.orientation.y = quat.y();
+        path.path.poses[j].pose.orientation.z = quat.z();
+        path.path.poses[j].pose.orientation.w = quat.w();
+        path.cost[j] = AStarMap_.Grid[indx].Cost; //add cost info to the path
+        
         send_arrows_array(wx, wy, wz);
     }
     return;
-
 }
 
 

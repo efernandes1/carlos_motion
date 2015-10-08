@@ -8,6 +8,7 @@
 #include <dynamic_reconfigure/server.h>
 #include <nav_msgs/OccupancyGrid.h> // map
 #include <nav_msgs/Path.h>
+#include <oea_msgs/Oea_path.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl/io/io.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -74,7 +75,6 @@ public:
     cv::Mat robot_padded_footprint_mat_,  high_cost_padded_footprint_mat_;
     bool inflate_map_borders_, allow_unknown_, stop_at_exact_target_, publish_entire_pcd_; //params
     int n_inflated_cells_;
-    nav_msgs::Path path_msg_;
     visualization_msgs::MarkerArray marker_array_arrows_, marker_array_cells_;
  	int last_path_number_of_points_;
     int level_closest, level_middle, level_farthest;
@@ -110,7 +110,7 @@ public:
     double yaw_from_n_layer(int n_layer);
     void add_to_pointCloud(int cx, int cy, int layer, sensor_msgs::PointCloud2& pcd);
 //Astar
-    bool AStarGo(int maxIter, std::string &error_str);
+    bool AStarGo(int maxIter, std::string &error_str, oea_msgs::Oea_path& path);
     void AStarInit();
     int AStarStep();
     void AddToAStarList(TGridCoord Pnt);
@@ -143,7 +143,7 @@ public:
 
     int CalcH(TGridCoord Pi, TGridCoord Pf);
 //other functions
-    void getPath();
+    void getPath(oea_msgs::Oea_path& path);
     void send_arrows_array(float wx, float wy, float wz);
     void add_cubes_array(int x, int y, int color);
     void delete_arrows_array(int number_of_arrows);

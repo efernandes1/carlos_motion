@@ -14,7 +14,7 @@
 #include <oea_controller/controlPlatformAction.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Path.h>
-
+#include <oea_msgs/Oea_path.h>
 # include <std_msgs/String.h>
 #include <mission_ctrl_msgs/hardware_state.h>
 #include <mission_ctrl_msgs/mission_ctrl_defines.h>
@@ -34,8 +34,8 @@ protected:
     mission_ctrl_msgs::movePlatformResult move_result_; // result for the "move platform" action
 
     oea_planner::planGoal pose_goal_; // goal for the planner is a poseStamped
-    oea_controller::controlPlatformGoal planned_path_goal_; // goal for the controller is output from the planner (nav_msgs/Path)
-    ros::Publisher path_pub_, state_pub_; //path_pub_ is for visualization purposes only
+    oea_controller::controlPlatformGoal planned_path_goal_; // goal for the controller is output from the planner (oea_msgs/Oea_path)
+    ros::Publisher state_pub_;
     ros::Subscriber ctrl_state_sub, planner_state_sub; // know the state of each subsystem
     bool planning_, controlling_, set_terminal_state_, debug_;
     uint8_t control_state_, plan_state_;
@@ -85,8 +85,6 @@ public:
         ROS_WARN_NAMED(logger_name_, "Waiting for controller server to start");
         ac_control_.waitForServer();
         ROS_INFO_STREAM_NAMED(logger_name_, "Controller server started: " <<  ac_control_.isServerConnected());
-
-        path_pub_ = n_.advertise<nav_msgs::Path>("/plan",1); //just to view the path
 
         n_.param("/carlos/fsm_frequency", frequency_, DEFAULT_STATE_FREQ);
         state_pub_timer_ = n_.createTimer(frequency_, &MovePlatformAction::state_pub_timerCB, this);
@@ -246,7 +244,6 @@ public:
                                      actionlib::SimpleActionClient<oea_controller::controlPlatformAction>::SimpleFeedbackCallback()); //boost::bind(&MovePlatformAction::ControlFeedbackCB, this,_1));
                 controlling_ = true;
                 ROS_DEBUG_STREAM_NAMED(logger_name_,"Goal #" << move_goal_.nav_goal.header.seq << " sent to Controller");
-                path_pub_.publish(result->planned_path);
             }
         }
         else //if plan NOT OK

@@ -83,11 +83,11 @@ public:
         controller_.stop_robot("a new goal was received");
 
         std::string error_str;
-        nav_msgs::Path planned_path;
-        planned_path = as_.acceptNewGoal()->plan_goal;
+        oea_msgs::Oea_path planned_path;
+        planned_path = as_.acceptNewGoal()->plan_goal; //TODO (mudar action file (tirar .path)
 
         // just in case we received an invalid path
-        if (planned_path.poses.size()<1)
+        if (planned_path.path.poses.size()<1)
         {
             error_str = "Path received has 0 poses!";
             ctrl_action_result_.result_state = false;

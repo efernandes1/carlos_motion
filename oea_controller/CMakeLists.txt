@@ -82,7 +82,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
    DEPENDENCIES
-   std_msgs actionlib_msgs nav_msgs
+   std_msgs actionlib_msgs oea_msgs
 )
 
 generate_dynamic_reconfigure_options(

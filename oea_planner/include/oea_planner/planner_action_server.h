@@ -33,9 +33,9 @@ public:
       {
       }
 
+    // execute (action)
     void executeCB(const oea_planner::planGoalConstPtr &goal_msg)
     {
-
         if (!planner_ros_.map_received_)
         {
             ROS_ERROR_NAMED(logger_name_, "No map received yet. Aborting!");
@@ -70,7 +70,7 @@ public:
         planner_ros_.Astar_.goal_world_pose_.x = goal_msg->pose_goal.pose.position.x;
         planner_ros_.Astar_.goal_world_pose_.y = goal_msg->pose_goal.pose.position.y;
         planner_ros_.Astar_.goal_world_pose_.yaw = tf::getYaw(goal_msg->pose_goal.pose.orientation);
-	ROS_INFO_STREAM_NAMED("debug_valina", "YAW: "<< planner_ros_.Astar_.goal_world_pose_.yaw << " | deg: " << to_degrees(planner_ros_.Astar_.goal_world_pose_.yaw));
+        ROS_INFO_STREAM_NAMED("debug_valina", "YAW: "<< planner_ros_.Astar_.goal_world_pose_.yaw << " | deg: " << to_degrees(planner_ros_.Astar_.goal_world_pose_.yaw));
 
         if (planner_ros_.Astar_.goal_world_pose_.yaw!=planner_ros_.Astar_.goal_world_pose_.yaw) //if nan
         {
@@ -103,9 +103,9 @@ public:
             //no need to clear Grid, because Astar was not called
             return;
         }
-        else
+        else // goal is valid
         {
-            nav_msgs::Path planned_path;
+            oea_msgs::Oea_path planned_path;
 
             result_.result_state = planner_ros_.executeCycle(error_str, planned_path);
             result_.error_string = error_str;
@@ -117,7 +117,7 @@ public:
             else
                 as_.setAborted(result_);
 
-            planner_ros_.planner_state.data = IDLE; //ERROR; //MESMO QUE TENHA DADO ERRRO, ESTÁ PRONTO PARA RECEBER OUTRO
+            planner_ros_.planner_state.data = IDLE; //ERROR; //MESMO QUE TENHA DADO ERRO, ESTÁ PRONTO PARA RECEBER OUTRO
             planner_ros_.state_pub_.publish(planner_ros_.planner_state);
             return;
         }

@@ -4,7 +4,7 @@ geometry_msgs/PoseStamped pose_goal
 #result
 bool result_state
 string error_string
-nav_msgs/Path planned_path
+oea_msgs/Oea_path planned_path # carries path and zone tolerance information
 ---
 #feedback
 bool state

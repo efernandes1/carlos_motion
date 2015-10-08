@@ -59,7 +59,7 @@ TOEAController::TOEAController(ros::NodeHandle nodeHandle)
     // get parameters
     nodeHandle.param<std::string>("global_frame_id", global_frame_id, "map");
     nodeHandle.param<std::string>("base_frame_id", base_frame_id, "base_footprint");
-    nodeHandle.param<std::string>("plan_topic", plan_topic, "/oea_planner/plan");
+    nodeHandle.param<std::string>("plan_topic", plan_topic, "/oea_planner/oea_plan");
 
     // maximum and minimum (absolute) velocities allowed
     nodeHandle.param("max_linear_vel", max_linear_vel, 0.15); // 15 cm/s
@@ -97,6 +97,7 @@ TOEAController::TOEAController(ros::NodeHandle nodeHandle)
     nodeHandle.param("scale_on_curves", scale_on_curves, 0.3);
 
     // because lasers are not symmetrical and we want a symmetrical safety area around lasers
+    // this is hardcoded for the CARLoS robot - make this more generic
     front_laser_offset = 0.08;
     back_laser_offset = 0.13;
 
@@ -902,7 +903,7 @@ void TOEAController::PoseGoalSubCallBack()
 }
 
 //(2) nav_msgs/Path:
-void TOEAController::planCallback(const nav_msgs::Path::ConstPtr& path_msg)
+void TOEAController::planCallback(const oea_msgs::Oea_path path_msg)
 {
     running_action_ = false;
     // always stop the robot when received another path
@@ -918,7 +919,7 @@ void TOEAController::planCallback(const nav_msgs::Path::ConstPtr& path_msg)
     }*/
 
     //update n_poses for new path
-    n_poses = path_msg->poses.size();
+    n_poses = path_msg.path.poses.size();
 
     if (n_poses == 0)
     {
@@ -929,7 +930,7 @@ void TOEAController::planCallback(const nav_msgs::Path::ConstPtr& path_msg)
 
     ROS_INFO_STREAM_NAMED(logger_name_, "[TOPIC] New Global plan received with " << n_poses << " poses");
 
-    global_plan = *path_msg; // copy msg to global variable
+    global_plan = path_msg; // copy msg to global variable
 
     plan_received_ = true; //received new plan (n poses)
     pose_index = 0;
@@ -946,7 +947,7 @@ void TOEAController::planCallback(const nav_msgs::Path::ConstPtr& path_msg)
     for (int i=0; i<n_poses; i++)
     {
         geometry_msgs::PoseStamped target;
-        target = global_plan.poses[i];
+        target = global_plan.path.poses[i];
 
         tf::Quaternion quat(target.pose.orientation.x, target.pose.orientation.y, target.pose.orientation.z, target.pose.orientation.w);
         double yaw = getYaw(quat);
@@ -983,7 +984,7 @@ void TOEAController::GetNextTargetFromPlan(int next)
     ROS_DEBUG_STREAM_NAMED(logger_name_, "Getting next target: next is #" << next);
 
     geometry_msgs::PoseStamped target;
-    target = global_plan.poses[next];
+    target = global_plan.path.poses[next];
 
     tf::Quaternion quat(target.pose.orientation.x, target.pose.orientation.y, target.pose.orientation.z, target.pose.orientation.w);
     double yaw = getYaw(quat);
@@ -1004,7 +1005,7 @@ void TOEAController::GetNextTargetFromPlan(int next)
             // lets check the goal after maintains the orientation
             next++;
 
-            target = global_plan.poses[next];
+            target = global_plan.path.poses[next];
             tf::Quaternion quat_n(target.pose.orientation.x, target.pose.orientation.y, target.pose.orientation.z, target.pose.orientation.w);
             yaw = getYaw(quat_n);
             target_n.x = target.pose.position.x;
@@ -1534,7 +1535,7 @@ void TOEAController::joyCallback(const sensor_msgs::Joy::ConstPtr& joy)
 
 }
 
-bool TOEAController::processActionPlan(const nav_msgs::Path& path_msg)
+bool TOEAController::processActionPlan(const oea_msgs::Oea_path path_msg)
 {
      running_action_ = true;
      // always stop the robot when received another path
@@ -1549,7 +1550,7 @@ bool TOEAController::processActionPlan(const nav_msgs::Path& path_msg)
         }
     }*/
 
-     n_poses = path_msg.poses.size();
+     n_poses = path_msg.path.poses.size();
 
      if (n_poses == 0)
      {
@@ -1575,7 +1576,7 @@ bool TOEAController::processActionPlan(const nav_msgs::Path& path_msg)
      for (int i=0; i<n_poses; i++)
      {
          geometry_msgs::PoseStamped target;
-         target = global_plan.poses[i];
+         target = global_plan.path.poses[i];
 
          tf::Quaternion quat(target.pose.orientation.x, target.pose.orientation.y, target.pose.orientation.z, target.pose.orientation.w);
          double yaw = getYaw(quat);

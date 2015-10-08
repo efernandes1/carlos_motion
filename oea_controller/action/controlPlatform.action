@@ -1,5 +1,5 @@
 #goal 
-nav_msgs/Path plan_goal
+oea_msgs/Oea_path plan_goal # carries path and zone tolerance information
 ---
 #result
 bool result_state

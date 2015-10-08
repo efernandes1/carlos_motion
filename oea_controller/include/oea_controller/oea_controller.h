@@ -23,6 +23,7 @@
 #include <std_msgs/UInt8.h>
 #include <std_srvs/Empty.h>
 #include <ros/console.h>
+#include <oea_msgs/Oea_path.h>
 
 
 #define ROTATE 0
@@ -90,7 +91,7 @@ public:
     TOEAController(ros::NodeHandle nodeHandle);
     ~TOEAController();
     void PoseGoalAction(const geometry_msgs::PoseStamped poseGoal);
-    bool processActionPlan(const nav_msgs::Path &path_msg);
+    bool processActionPlan(const oea_msgs::Oea_path path_msg);
     void stop_robot(std::string str);
 
     bool control_done_, result_state_;
@@ -147,7 +148,7 @@ private:
     visualization_msgs::MarkerArray marker_deaccel_array_;
     int marker_id_zones, marker_id_laser;
    // std::vector<int> plan_poses;
-    nav_msgs::Path global_plan;
+    oea_msgs::Oea_path global_plan;
     int n_poses, pose_index;
     bool plan_received_, compute_next_target_, is_last_target_, is_first_target_;
     double Kp, Kd, Ki, previous_error, i_error, Kff;
@@ -179,7 +180,7 @@ private Q_SLOTS:
     void FrontLaserScanSubCallBack();
     void BackLaserScanSubCallBack();
     void PoseGoalSubCallBack();
-    void planCallback(const nav_msgs::Path::ConstPtr& path_msg);
+    void planCallback(const oea_msgs::Oea_path path_msg);
     void GetNextTargetFromPlan(int next);
     void send_zones(float wx, float wy, float threshold, int color, visualization_msgs::MarkerArray& marker_array,  const std::string  frame);
     void paramsCB(oea_controller::ctrl_paramsConfig &config, uint32_t level);

@@ -53,8 +53,8 @@ TOea_Planner::TOea_Planner(ros::NodeHandle &n, ros::NodeHandle &private_n, std::
 
     // publishers:
     pcd_pub_ =  private_n.advertise<sensor_msgs::PointCloud2>("inflation_cloud", 1, true); // inflation point cloud (latched)
-    path_pub_ = private_n.advertise<nav_msgs::Path>("plan",1); //publishing this topic causes the controller to start
-    visual_path_pub_ = n.advertise<nav_msgs::Path>("/plan",1, true); //latched topic, same as for the actions -> this way we can  have only one topic for visualization
+    oea_path_pub_ = private_n.advertise<oea_msgs::Oea_path>("oea_plan",1); //publishing this topic causes the controller to start
+    visual_path_pub_ = n.advertise<nav_msgs::Path>("/plan",1, true); //latched topic, same as for the actions -> this way we can have only one topic for visualization
     arrows_pub_ = private_n.advertise<visualization_msgs::MarkerArray>("arrows_marker_array", 1, true);
     state_pub_ = private_n.advertise<std_msgs::UInt8>("state", 1);
     cells_pub_ = private_n.advertise<visualization_msgs::MarkerArray>("cells_marker_array", 1, true);
@@ -76,14 +76,15 @@ int TOea_Planner::exec()
     while (ros::ok())
     {
         ros::spin();
-       // pcd_pub_.publish(pcd);
     }
     return 0;
 }
 
 
 
-
+// service to check if some pose is valid
+// is valid if in free or high cost zone
+// not valid if obstacle, inflated or outside the map
 bool TOea_Planner::IsPoseValid(oea_planner::isPoseValid::Request& req, oea_planner::isPoseValid::Response& res)
 {
     ROS_DEBUG_NAMED(logger_name_, "IsPoseValid Service Called");
@@ -130,24 +131,22 @@ void TOea_Planner::goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal_msg)
     Astar_.goal_world_pose_.y = goal_msg->pose.position.y;
     Astar_.goal_world_pose_.yaw = tf::getYaw(goal_msg->pose.orientation);
 
-    nav_msgs::Path path; //plan variable
-    path.poses.clear();
+    oea_msgs::Oea_path oea_path; // plan variable
+    // oea_path.path.poses.clear();
 
     //check validity:
     if (Astar_.goal_world_pose_.yaw!=Astar_.goal_world_pose_.yaw) //if nan
     {
-
-
         ROS_ERROR_STREAM_NAMED(logger_name_, "Invalig Goal: yaw is " << to_degrees(Astar_.goal_world_pose_.yaw));
         //else just publish the blank path
 
-        path_pub_.publish(path); //publishing 0 poses will cause the controller to stop following the previous path
-        visual_path_pub_.publish(path);
+        oea_path_pub_.publish(oea_path); //publishing 0 poses will cause the controller to stop following the previous path
+        visual_path_pub_.publish(oea_path.path); // publish nav_msgs/Path to view path on rviz
 
         planner_state.data = hardware::IDLE;
         state_pub_.publish(planner_state);
 
-     return;
+        return;
     }
 
     //convert it to grid coord
@@ -160,29 +159,19 @@ void TOea_Planner::goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal_msg)
     if (Astar_.is_valid_point(Astar_.goal_grid_pose_,error_str))
     {
         //get path from the Astar...
-        executeCycle(error_str, path);
+        executeCycle(error_str, oea_path);
     }
     else
     {
         ROS_WARN_STREAM_NAMED(logger_name_, error_str);
-       //no need to clear Grid, because Astar was not called
+        // no need to clear Grid, because Astar was not called
+        // publish empty plan to stop the robot in case it's moving and received a new point...
+        oea_path_pub_.publish(oea_path);
+        visual_path_pub_.publish(oea_path.path);
     }
-
-    //publish if planned  was filled in executeCycle or empty plan to stop the robot in case it's moving and received a new point...
-    path_pub_.publish(path);
-    visual_path_pub_.publish(path);
 
     planner_state.data = hardware::IDLE;
     state_pub_.publish(planner_state);
-
-    // print goal cell info (coord and cost) to terminal
-    int x, y, l;
-    x = Astar_.goal_grid_pose_.x;
-    y = Astar_.goal_grid_pose_.y;
-    l = Astar_.goal_grid_pose_.z;
-    int index = Astar_.Get_index(l,y,x, "SetGridCellCost(x,y,z)");
-    std::cout << BOLDCYAN << "goal cell is: [l][h][w] = [" << l << "][" << y << "][" << x << "] , with cost: " << + Astar_.AStarMap_.Grid[index].Cost  << RESET <<  std::endl;
-
 
 }
 
@@ -255,10 +244,9 @@ void TOea_Planner::mapCB(const nav_msgs::OccupancyGrid::ConstPtr& map_msg)
     ROS_INFO_NAMED(logger_name_, "Planner is ready to receive goals");
 }
 
-bool TOea_Planner::executeCycle(std::string &error_str, nav_msgs::Path &planned_path)
+bool TOea_Planner::executeCycle(std::string &error_str, oea_msgs::Oea_path &planned_path)
 {
     bool success = false;
-    Astar_.path_msg_.poses.clear(); // clear previous path
 
     //get tf for robot location
     tf::TransformListener listener;
@@ -281,11 +269,11 @@ bool TOea_Planner::executeCycle(std::string &error_str, nav_msgs::Path &planned_
         Astar_.robot_init_world_pose_.x = transform.getOrigin().x();
         Astar_.robot_init_world_pose_.y = transform.getOrigin().y();
         Astar_.robot_init_world_pose_.yaw = tf::getYaw(transform.getRotation());
-
     }
     /* else
     {
 		use "2D pose estimate" or directly "/start_pose" topic to set a starting pose
+        // check if already has a pose
     } */
 
 
@@ -300,13 +288,12 @@ bool TOea_Planner::executeCycle(std::string &error_str, nav_msgs::Path &planned_
     Astar_.AStarMap_.TargetPoint.y = Astar_.goal_grid_pose_.y;
     Astar_.AStarMap_.TargetPoint.z = Astar_.goal_grid_pose_.z;
 
-
     Astar_.AStarMap_.ActualTargetPoint.x = Astar_.goal_grid_pose_.x;
     Astar_.AStarMap_.ActualTargetPoint.y = Astar_.goal_grid_pose_.y;
     Astar_.AStarMap_.ActualTargetPoint.z = Astar_.goal_grid_pose_.z;
 
-    ros::Time time_init = ros::Time::now();
-    int number_cells = Astar_.world_map_.width*Astar_.world_map_.height*AStarDirCount;
+    ros::Time time_init = ros::Time::now(); // to check how long it took to plan
+    int number_cells = Astar_.world_map_.width*Astar_.world_map_.height*AStarDirCount; // # of cell in 3D map
 
     // delete arrows from previous path
     int n = Astar_.last_path_number_of_points_;
@@ -318,13 +305,14 @@ bool TOea_Planner::executeCycle(std::string &error_str, nav_msgs::Path &planned_
     }
     cells_pub_.publish(Astar_.marker_array_cells_);
 
-    success = Astar_.AStarGo(number_cells, error_str);
+    success = Astar_.AStarGo(number_cells, error_str, planned_path);
     ros::Duration d = ros::Time::now()-time_init;
     ROS_DEBUG_STREAM_NAMED(logger_name_, "Planning took: " << d.toNSec()/1000000 << " miliseconds. ");
 
-  //  path_pub_.publish(Astar_.path_msg_); //para já não publica aqui. só pub se for recebido por tópico (para nao baralhar ctrl)
-    planned_path = Astar_.path_msg_;
     arrows_pub_.publish(Astar_.marker_array_arrows_);
+    //by publishing path here we don't need to publish it in move_server
+    oea_path_pub_.publish(planned_path);
+    visual_path_pub_.publish(planned_path.path);
 
     Astar_.AStarClear(); // clear open and closed cells
     return success;

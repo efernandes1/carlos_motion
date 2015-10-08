@@ -29,7 +29,7 @@ public:
     /*explicit*/ TOea_Planner(ros::NodeHandle &n, ros::NodeHandle &private_n, std::string logger_name);
     ~TOea_Planner();
     int exec();
-    bool executeCycle(std::string &error_str, nav_msgs::Path &planned_path);
+    bool executeCycle(std::string &error_str, oea_msgs::Oea_path &planned_path);
     TAstar Astar_;
     std_msgs::UInt8 planner_state;
     ros::Publisher state_pub_; // planner state publisher
@@ -42,7 +42,9 @@ private:
 
     // ** publishers:
     ros::Publisher pcd_pub_; // inflation point cloud publisher
-    ros::Publisher path_pub_, visual_path_pub_; // path publisher for controller (topic) / and to view in both topic and action (visual)
+    //ros::Publisher path_pub_,
+    ros::Publisher oea_path_pub_; // path publisher for controller (topic)
+    ros::Publisher visual_path_pub_; // and to view in both topic and action (visual)
     ros::Publisher arrows_pub_; // arrows publisher
     ros::Publisher cells_pub_; // mark individual cells
 
