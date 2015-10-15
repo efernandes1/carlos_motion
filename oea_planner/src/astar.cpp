@@ -21,6 +21,8 @@ TAstar::TAstar(std::string logger_name)
     level_middle = 0;
     level_farthest = 0;
     cost_scale = 0;
+    heading_cost = 2;
+
     update_grid = false;
 
     SixteenWayNeighbours_[0].x = 3; SixteenWayNeighbours_[0].y = 0; SixteenWayNeighbours_[0].dist = fixp_3_0; //0
@@ -218,7 +220,7 @@ void TAstar::SetGridFromMap(const nav_msgs::OccupancyGrid::ConstPtr& map, sensor
                     if ((l==0) || (l==4))
                         enter = true;
                     else
-                        enter = true; //false;
+                        enter = false;
                 }
 
                 // (A) view inflation
@@ -969,7 +971,7 @@ int TAstar::AStarStep()
             if (i==0 || i==3) // if maintain same orientation
                 heading_change_cost = 1;
             else // if there's a change of heading
-                heading_change_cost = 2; // penalize it
+                heading_change_cost = heading_cost;// 3; // penalize it
         }
         else
             heading_change_cost = 1;
@@ -1146,7 +1148,7 @@ void TAstar::getPath(oea_msgs::Oea_path& path)
             y = robot_init_grid_pose_.y;
             z = robot_init_grid_pose_.z;          
             indx = Get_index(z,y,x, "SetGridCellCost(x,y,z)");
-            std::cout << CYAN << " Start: [l][h][w] = [" << z << "][" << y << "][" << x << "] : " << +AStarMap_.Grid[indx].Cost  << RESET <<  std::endl;
+           // std::cout << CYAN << " Start: [l][h][w] = [" << z << "][" << y << "][" << x << "] : " << +AStarMap_.Grid[indx].Cost  << RESET <<  std::endl;
 
         }
         else
@@ -1156,7 +1158,7 @@ void TAstar::getPath(oea_msgs::Oea_path& path)
             y = grid_points[i-j].y;
             z = grid_points[i-j].z;
             indx = Get_index(z,y,x, "SetGridCellCost(x,y,z)");
-            std::cout << CYAN << "[l][h][w] = [" << z << "][" << y << "][" << x << "] : " << +AStarMap_.Grid[indx].Cost  << RESET <<  std::endl;
+            //std::cout << CYAN << "[l][h][w] = [" << z << "][" << y << "][" << x << "] : " << +AStarMap_.Grid[indx].Cost  << RESET <<  std::endl;
 
         }
 
@@ -1603,6 +1605,7 @@ void TAstar::paramsCB(oea_planner::planner_paramsConfig &config, uint32_t level)
     level_farthest = config.level_farthest;
 
     cost_scale = config.cost_scale;
+    heading_cost = config.heading_cost;
 
     if ( update_grid)
     {

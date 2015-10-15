@@ -6,8 +6,8 @@
 
 		<param name="global_frame_id" value="map"/>
 		<param name="base_frame_id" value="base_footprint"/>
-		<param name="robot_x_size" value="0.5"/> <!-- 1.2 -->
-		<param name="robot_y_size" value="0.3"/> <!-- 0.6 --> <!-- tracks: 0.55 --><!-- wheels: 0.8 -->
+		<param name="robot_x_size" value="1.2"/> <!-- 1.2 -->
+		<param name="robot_y_size" value="0.6"/> <!-- 0.6 --> <!-- tracks: 0.55 --><!-- wheels: 0.8 -->
 		<param name="inflate_map_borders" value="false"/>
 		<param name="stop_at_exact_target" value="false"/> <!-- true = stops in the exact cell, false = stops at one of the neighbors -->
 		<!--	<param name="allow_unknown" value="true"/>-->
@@ -16,8 +16,8 @@
 
 		<param name="use_frontal_laser" value="true"/> <!-- if a laser is missing, set this to false -->
 		<param name="use_back_laser" value="true"/>
-		<param name="use_localization" value="false"/>
-		<param name="mark_end_cubes" value="true"/>
+		<param name="use_localization" value="true"/>
+		<param name="mark_end_cubes" value="false"/>
 		<param name="debug" value="true"/>
 
 	</node> 

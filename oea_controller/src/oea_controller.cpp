@@ -158,7 +158,7 @@ TOEAController::TOEAController(ros::NodeHandle nodeHandle)
     {
         marker_protective_laser_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("protective_laser_markers", 1);
         marker_warning_laser_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("warning_laser_markers", 1);
-        markers_zone_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("zones_markers", 1);
+        markers_zone_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("zones_markers", 1, true);
         markers_deaccel_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("deaccel_markers", 1);
     }
 
@@ -956,17 +956,34 @@ void TOEAController::planCallback(const oea_msgs::Oea_path path_msg)
         target2.y = target.pose.position.y;
         target2.yaw = yaw;
 
+        uint8_t cost;
+        cost = global_plan.cost[i];
+        double tol = tolerance_d - cost * ((tolerance_d-tolerance_d_last_point)/4);
+
+
         if (send_markers) //@planCallback
         {
             if (i==n_poses-1)
             {
-                send_zones(target2.x, target2.y, tolerance_d_last_point, 0x6697bf , marker_zones_array_, "/map"); //blue
-                send_zones(target2.x, target2.y, 2*tolerance_d_last_point, 0xb0407d, marker_zones_array_, "/map"); //pink
+                send_zones(target2.x, target2.y, tolerance_d_last_point, 0xff0000 , marker_zones_array_, "/map");
+                send_zones(target2.x, target2.y, 2*tolerance_d_last_point, 0xff0000, marker_zones_array_, "/map");
             }
             else
             {
-                send_zones(target2.x, target2.y, tolerance_d, 0x00ff00, marker_zones_array_, "/map");
-                send_zones(target2.x, target2.y, 2*tolerance_d, 0xff0000, marker_zones_array_, "/map");
+                int col;
+                if (cost == 0)
+                    col = 0x00ff00; // green
+                if (cost == 1)
+                    col = 0xFFFF66; // yellow
+                if (cost == 2)
+                    col = 0xFF6600; // orange
+                if (cost == 3)
+                    col = 0xFF0066; // hot pink
+                if (cost == 4)
+                    col = 0xff0000; // red
+
+                send_zones(target2.x, target2.y, tol, 0x3399FF, marker_zones_array_, "/map");
+                send_zones(target2.x, target2.y, 2*tol, col , marker_zones_array_, "/map");
             }
         }
     }
@@ -1070,9 +1087,9 @@ void TOEAController::GetNextTargetFromPlan(int next)
             if (markers_zone_pub_.getTopic()!="")
             {
                 int id = 2*pose_index+1;
-                update_zone(id,target2.x, target2.y, current_tolerance_d, 0x509ddd, marker_zones_array_, "/map");
-                update_zone(id+1,target2.x, target2.y, 2*current_tolerance_d, 0xffff00, marker_zones_array_, "/map");
-                markers_zone_pub_.publish(marker_zones_array_);
+             //   update_zone(id,target2.x, target2.y, current_tolerance_d, 0x509ddd, marker_zones_array_, "/map");
+              //  update_zone(id+1,target2.x, target2.y, 2*current_tolerance_d, 0xffff00, marker_zones_array_, "/map");
+               // markers_zone_pub_.publish(marker_zones_array_);
             }
         }
     }
@@ -1085,7 +1102,7 @@ bool TOEAController::deaccel_before_target(pose t2, pose t3)
 
     if (angle != 0)
     {
-        send_zones(current_x, current_y, 0.02, 0xFF3300, marker_deaccel_array_, "/map"); //orange
+        //send_zones(current_x, current_y, 0.02, 0xFF3300, marker_deaccel_array_, "/map"); //orange
         if (markers_deaccel_pub_.getTopic()!="")
             markers_deaccel_pub_.publish(marker_deaccel_array_);
 
@@ -1105,7 +1122,7 @@ double TOEAController::d_to_next_target(pose next_target)
         // send yellow markers when d to next target < distance_threshold
         if (markers_deaccel_pub_.getTopic()!="")
         {
-            send_zones(current_x, current_y, 0.02, 0xFFFF00, marker_deaccel_array_, "/map"); //yellow
+            //send_zones(current_x, current_y, 0.02, 0xFFFF00, marker_deaccel_array_, "/map"); //yellow
             markers_deaccel_pub_.publish(marker_deaccel_array_);
         }
     }
@@ -1237,7 +1254,7 @@ void TOEAController::send_zones(float wx, float wy, float threshold, int color, 
     marker.color.r = r;
     marker.color.g = g;
     marker.color.b = b;
-    marker.color.a = 0.5;
+    marker.color.a = 0.8;
 
     marker.pose.position.x = wx;
     marker.pose.position.y = wy;
@@ -1541,14 +1558,14 @@ bool TOEAController::processActionPlan(const oea_msgs::Oea_path path_msg)
      // always stop the robot when received another path
      //stop_robot("a new plan was received"); //no need, already stopped when goal received
 
-     /*if (send_markers)
+     if (send_markers)
     {
         if (n_poses>0)
         {
             delete_zones_array(2*n_poses); //because we're printing 2 zones (red and green)
-            markers_zone_pub.publish(marker_zones_array_);
+            //markers_zone_pub.publish(marker_zones_array_);
         }
-    }*/
+    }
 
      n_poses = path_msg.path.poses.size();
 
@@ -1585,17 +1602,33 @@ bool TOEAController::processActionPlan(const oea_msgs::Oea_path path_msg)
          target2.y = target.pose.position.y;
          target2.yaw = yaw;
 
-         if (send_markers)
+         uint8_t cost;
+         cost = global_plan.cost[i];
+         double tol = tolerance_d - cost * ((tolerance_d-tolerance_d_last_point)/4);
+
+         if (send_markers) //@processActionPlan
          {
-             if (i==n_poses-1)
+             if (i == n_poses-1)
              {
                  send_zones(target2.x, target2.y, tolerance_d_last_point, 0x00ff00, marker_zones_array_, "/map");
                  send_zones(target2.x, target2.y, 2*tolerance_d_last_point, 0xff0000, marker_zones_array_, "/map");
              }
              else
              {
-                 send_zones(target2.x, target2.y, tolerance_d, 0x00ff00, marker_zones_array_, "/map"); //GREEN
-                 send_zones(target2.x, target2.y, 2*tolerance_d, 0xff0000, marker_zones_array_, "/map"); //RED
+                 int col;
+                 if (cost == 0)
+                     col = 0x00ff00; // green
+                 if (cost == 1)
+                     col = 0xFFFF66; // yellow
+                 if (cost == 2)
+                     col = 0xFF6600; // orange
+                 if (cost == 3)
+                     col = 0xFF0066; // hot pink
+                 if (cost == 4)
+                     col = 0xff0000; // red
+
+                 send_zones(target2.x, target2.y, tol, 0x3399FF, marker_zones_array_, "/map");
+                 send_zones(target2.x, target2.y, 2*tol, col , marker_zones_array_, "/map");
              }
          }
      }
