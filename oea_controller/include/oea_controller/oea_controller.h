@@ -175,6 +175,7 @@ private:
     ros::ServiceServer service_server;
     bool force_stop_robot(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
     bool cancel_action(std::string);
+    bool group_points_;
 private Q_SLOTS:
     void MainTimerCallBack();
     void FrontLaserScanSubCallBack();

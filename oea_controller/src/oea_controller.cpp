@@ -81,6 +81,7 @@ TOEAController::TOEAController(ros::NodeHandle nodeHandle)
     nodeHandle.param("tolerance_d_last_point", tolerance_d_last_point, 0.05);
     nodeHandle.param("tolerance_yaw_deg_last_point", tolerance_yaw_last_point, 5.0);
     tolerance_yaw_last_point = to_radians(tolerance_yaw_last_point);
+    nodeHandle.param("group_points", group_points_, true);
 
 
     // controller gains
@@ -909,14 +910,14 @@ void TOEAController::planCallback(const oea_msgs::Oea_path path_msg)
     // always stop the robot when received another path
     stop_robot("a new plan was received");
 
-    /*if (send_markers)
+    if (send_markers)
     {
         if (n_poses>0)
         {
             delete_zones_array(2*n_poses); //because we're printing 2 zones (red and green)
-            markers_zone_pub.publish(marker_zones_array_);
+            markers_zone_pub_.publish(marker_zones_array_);
         }
-    }*/
+    }
 
     //update n_poses for new path
     n_poses = path_msg.path.poses.size();
@@ -963,28 +964,35 @@ void TOEAController::planCallback(const oea_msgs::Oea_path path_msg)
 
         if (send_markers) //@planCallback
         {
+            int col;
+            switch (cost)
+            {
+            case 0:
+                col = 0x00ff00; // green
+                break;
+            case 1:
+                col = 0xFFFF66; // yellow
+                break;
+            case 2:
+                col = 0xFF6600; // orange
+                break;
+            case 3:
+                col = 0xFF0066; // hot pink
+                break;
+            default:
+                col = 0xff0000; // red
+                break;
+            }
+
             if (i==n_poses-1)
             {
-                send_zones(target2.x, target2.y, tolerance_d_last_point, 0xff0000 , marker_zones_array_, "/map");
-                send_zones(target2.x, target2.y, 2*tolerance_d_last_point, 0xff0000, marker_zones_array_, "/map");
+                col = 0xff0000; // red
+                tol = tolerance_d - 4 * ((tolerance_d-tolerance_d_last_point)/4);
             }
-            else
-            {
-                int col;
-                if (cost == 0)
-                    col = 0x00ff00; // green
-                if (cost == 1)
-                    col = 0xFFFF66; // yellow
-                if (cost == 2)
-                    col = 0xFF6600; // orange
-                if (cost == 3)
-                    col = 0xFF0066; // hot pink
-                if (cost == 4)
-                    col = 0xff0000; // red
 
-                send_zones(target2.x, target2.y, tol, 0x3399FF, marker_zones_array_, "/map");
-                send_zones(target2.x, target2.y, 2*tol, col , marker_zones_array_, "/map");
-            }
+            send_zones(target2.x, target2.y, tol, col, marker_zones_array_, "/map"); // 0x3399FF
+            //send_zones(target2.x, target2.y, 2*tol, 0x3399FF , marker_zones_array_, "/map");
+            //}
         }
     }
     pub_zones_markers_ = true;
@@ -1015,40 +1023,43 @@ void TOEAController::GetNextTargetFromPlan(int next)
     pose target_n;
     target_n = target2; //now target_n is immediate next
 
-    if (next < n_poses-1) // only group same orientation goals if not close to walls
+    if (group_points_)
     {
-        while(target_n.yaw == target2.yaw) //while the next goals have the same orientatin
+        if (next < n_poses-1) // only group same orientation goals if not close to walls
         {
-            // lets check the goal after maintains the orientation
-            next++;
-
-            target = global_plan.path.poses[next];
-            tf::Quaternion quat_n(target.pose.orientation.x, target.pose.orientation.y, target.pose.orientation.z, target.pose.orientation.w);
-            yaw = getYaw(quat_n);
-            target_n.x = target.pose.position.x;
-            target_n.y = target.pose.position.y;
-            target_n.yaw = yaw;
-
-            if(target_n.yaw == target2.yaw)
+            while(target_n.yaw == target2.yaw) //while the next goals have the same orientatin
             {
-                target2 = target_n;
+                // lets check the goal after maintains the orientation
+                next++;
 
-                if(pose_index == n_poses-1)
+                target = global_plan.path.poses[next];
+                tf::Quaternion quat_n(target.pose.orientation.x, target.pose.orientation.y, target.pose.orientation.z, target.pose.orientation.w);
+                yaw = getYaw(quat_n);
+                target_n.x = target.pose.position.x;
+                target_n.y = target.pose.position.y;
+                target_n.yaw = yaw;
+
+                if(target_n.yaw == target2.yaw)
                 {
-                    return;
+                    target2 = target_n;
+
+                    if(pose_index == n_poses-1)
+                    {
+                        return;
+                    }
+                    pose_index++;
+                    target3 = target2;
+
+                    if (pose_index >= n_poses-1)
+                    {
+                        break;
+                    }
                 }
-                pose_index++;
-                target3 = target2;
-
-                if (pose_index >= n_poses-1)
+                else
                 {
+                    target3 = target2;
                     break;
                 }
-            }
-            else
-            {
-                target3 = target2;
-                break;
             }
         }
     }
@@ -1068,28 +1079,101 @@ void TOEAController::GetNextTargetFromPlan(int next)
         target3.yaw = yaw;
     }
 */
-    if (send_markers)
+    if (send_markers) // current tol nao devia ser so qd send markers-...
     {
+        uint8_t cost;
+        cost = global_plan.cost[next];
+        double tol = tolerance_d - cost * ((tolerance_d-tolerance_d_last_point)/4);
 
-        if ((pose_index==n_poses-1) || obstacle_in_warning_zone_ )// is last target
+        int col;
+       /* if ((pose_index==n_poses-1) || obstacle_in_warning_zone_ )// is last target
         {
-            current_tolerance_d = tolerance_d_last_point;
+
+            cost++;
+
+            if (cost == 0)
+            {
+                col = 0x00ff00; // green
+                std::cout << BOLDGREEN << "Green" << RESET << std::endl;
+            }
+            if (cost == 1)
+            {
+                col = 0xFFFF66; // yellow
+                std::cout << BOLDYELLOW << "yellow" << RESET << std::endl;
+            }
+            if (cost == 2)
+            {
+                col = 0xFF6600; // orange
+                std::cout << BOLDWHITE << "orange" << RESET << std::endl;
+            }
+            if (cost == 3)
+            {
+                col = 0xFF0066; // hot pink
+                std::cout << BOLDMAGENTA << "MAGENTA" << RESET << std::endl;
+            }
+            if (cost == 4)
+            {
+                col = 0xff0000; // red
+                cost = 3;
+                std::cout << BOLDRED << "red" << RESET << std::endl;
+            }
+            if (cost == 5)
+            {
+                col = 0xff0000; // red
+                cost = 4;
+                std::cout << BOLDRED << "red" << RESET << std::endl;
+            }
+
+
+            current_tolerance_d = tolerance_d - (cost) * ((tolerance_d-tolerance_d_last_point)/4); //tolerance_d_last_point;
             current_tolerance_yaw = tolerance_yaw_last_point;
         }
         else
         {
-            current_tolerance_d = tolerance_d;
+            current_tolerance_d = tolerance_d - cost * ((tolerance_d-tolerance_d_last_point)/4); //tolerance_d;
             current_tolerance_yaw = tolerance_yaw;
-        }
+        }*/
 
-        if (obstacle_in_warning_zone_)
+
+        if (pose_index==n_poses-1)
         {
-            if (markers_zone_pub_.getTopic()!="")
+            current_tolerance_yaw = tolerance_yaw_last_point;
+            current_tolerance_d = tolerance_d_last_point;
+        }
+        else
+        {
+            current_tolerance_d = tolerance_d - cost * ((tolerance_d-tolerance_d_last_point)/4); //tolerance_d;
+            current_tolerance_yaw = tolerance_yaw;
+
+            if (obstacle_in_warning_zone_)
             {
-                int id = 2*pose_index+1;
-             //   update_zone(id,target2.x, target2.y, current_tolerance_d, 0x509ddd, marker_zones_array_, "/map");
-              //  update_zone(id+1,target2.x, target2.y, 2*current_tolerance_d, 0xffff00, marker_zones_array_, "/map");
-               // markers_zone_pub_.publish(marker_zones_array_);
+                cost++;
+
+                switch (cost)
+                {
+                case 1:
+                    col = 0xFFFF66; // yellow
+                    break;
+                case 2:
+                    col = 0xFF6600; // orange
+                    break;
+                case 3:
+                    col = 0xFF0066; // hot pink
+                    break;
+                default:
+                    col = 0xff0000; // red
+                    cost = 4;
+                    break;
+                }
+
+                    current_tolerance_d = tolerance_d - cost * ((tolerance_d-tolerance_d_last_point)/4); //tolerance_d;
+                    if (markers_zone_pub_.getTopic()!="")
+                    {
+                        int id = pose_index+1; // 2*pose_index+1;
+                        update_zone(id,target2.x, target2.y, current_tolerance_d, col, marker_zones_array_, "/map");
+                        // update_zone(id+1,target2.x, target2.y, 2*current_tolerance_d, 0xffff00, marker_zones_array_, "/map");
+                        markers_zone_pub_.publish(marker_zones_array_);
+                    }
             }
         }
     }
@@ -1288,7 +1372,7 @@ void TOEAController::update_zone(int id, float wx, float wy, float threshold, in
     marker.color.r = r;
     marker.color.g = g;
     marker.color.b = b;
-    marker.color.a = 0.3;
+    marker.color.a = 0.8;
 
     marker.pose.position.x = wx;
     marker.pose.position.y = wy;
@@ -1563,7 +1647,7 @@ bool TOEAController::processActionPlan(const oea_msgs::Oea_path path_msg)
         if (n_poses>0)
         {
             delete_zones_array(2*n_poses); //because we're printing 2 zones (red and green)
-            //markers_zone_pub.publish(marker_zones_array_);
+            markers_zone_pub_.publish(marker_zones_array_);
         }
     }
 

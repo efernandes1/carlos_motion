@@ -1516,7 +1516,7 @@ void TAstar::send_arrows_array(float wx, float wy, float wz)
     marker_arrow.color.r = r;
     marker_arrow.color.g = g;
     marker_arrow.color.b = b;
-    marker_arrow.color.a = 0.5;
+    marker_arrow.color.a = 1.0;
 
     geometry_msgs::Point p;
     p.x = wx;
@@ -1536,7 +1536,7 @@ void TAstar::send_arrows_array(float wx, float wy, float wz)
 void TAstar::delete_arrows_array(int number_of_arrows)
 {
 
-     marker_array_arrows_.markers.clear();
+    // marker_array_arrows_.markers.clear();
 
     //temporary marker
     visualization_msgs::Marker marker_arrow;
@@ -1580,10 +1580,38 @@ void  TAstar::add_to_pointCloud(int cx, int cy, int layer, sensor_msgs::PointClo
         point_pcl.g = 0x00;
         point_pcl.b = 0x00;
         break;
+    case 1:
+        point_pcl.r = 0xcc;
+        point_pcl.g = 0x66;
+        point_pcl.b = 0x00;
+        break;
+    case 2:
+        point_pcl.r = 0xcc;
+        point_pcl.g = 0x0ff;
+        point_pcl.b = 0x33;
+        break;
     case 4:
         point_pcl.r = 0x00;
         point_pcl.g = 0xff;
         point_pcl.b = 0xff;
+        break;
+
+    case 5:
+        point_pcl.r = 0x00;
+        point_pcl.g = 0x00;
+        point_pcl.b = 0xff;
+        break;
+
+    case 6:
+        point_pcl.r = 0x66;
+        point_pcl.g = 0x00;
+        point_pcl.b = 0xCC;
+        break;
+
+    case 7:
+        point_pcl.r = 0xff;
+        point_pcl.g = 0x33;
+        point_pcl.b = 0x99;
         break;
     }
 
