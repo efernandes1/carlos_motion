@@ -14,7 +14,12 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   dynamic_reconfigure
   oea_msgs
+  sensor_msgs
+  pcl_conversions
+  tf
 )
+
+find_package( PCL REQUIRED )
 
 ## System dependencies are found with CMake's conventions
 
@@ -103,6 +108,8 @@ catkin_package(
 #  LIBRARIES example
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
+DEPENDS
+      PCL
 )
 
 ###########
@@ -115,7 +122,11 @@ catkin_package(
     include
     ${catkin_INCLUDE_DIRS}
     ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
+    ${PCL_INCLUDE_DIRS}
   )
+
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 ## Declare a cpp library
 # add_library(example
@@ -134,6 +145,7 @@ add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencpp ${PROJECT_NAME}_gencfg)
   target_link_libraries(${PROJECT_NAME}
     ${catkin_LIBRARIES}
     ${QT_LIBRARIES}
+    ${PCL_LIBRARIES}
   )
 
 #############

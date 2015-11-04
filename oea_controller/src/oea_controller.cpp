@@ -157,10 +157,10 @@ TOEAController::TOEAController(ros::NodeHandle nodeHandle)
 
     if (send_markers)
     {
-        marker_protective_laser_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("protective_laser_markers", 1);
-        marker_warning_laser_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("warning_laser_markers", 1);
+        // marker_protective_laser_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("protective_laser_markers", 1);
+        // marker_warning_laser_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("warning_laser_markers", 1);
         markers_zone_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("zones_markers", 1, true);
-        markers_deaccel_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("deaccel_markers", 1);
+        // markers_deaccel_pub_ = nodeHandle.advertise<visualization_msgs::MarkerArray>("deaccel_markers", 1);
     }
 
     if (stop_with_joystick)
@@ -194,7 +194,8 @@ TOEAController::TOEAController(ros::NodeHandle nodeHandle)
     obstacle_in_warning_zone_ = false;
     obstacle_in_warning_front_ = false;
     obstacle_in_warning_back_ = false;
-    show_laser_front_, show_laser_back_ = false;
+    obstacle_outlier_warning_ = obstacle_outlier_protective_front_, obstacle_outlier_protective_back_ = false;
+    show_laser_front_ = show_laser_back_ = false;
 
     //TODO - print this to rosout!!!
  /*   std::cout << BOLDMAGENTA << "Parameters: " << RESET << std::endl;
@@ -256,6 +257,7 @@ TOEAController::TOEAController(ros::NodeHandle nodeHandle)
     robot_pose_pub_ = nodeHandle.advertise<geometry_msgs::PoseStamped>("robot",1);
 
     obstacle_timer_started_ = false;
+    outliers_sub_ = nodeHandle.subscribe<sensor_msgs::PointCloud2>("/dynamic_robot_localization/aligned_pointcloud_outliers", 1, &TOEAController::outliersCB, this);
 
 }
 
@@ -314,7 +316,7 @@ bool TOEAController::cancel_action(std::string str)
 
 void TOEAController::MainTimerCallBack()
 {
-    if (obstacle_in_warning_front_ || obstacle_in_warning_back_)
+    if (obstacle_in_warning_front_ || obstacle_in_warning_back_ || obstacle_outlier_warning_)
         obstacle_in_warning_zone_ = true;
     else
         obstacle_in_warning_zone_ = false;
@@ -357,6 +359,7 @@ void TOEAController::MainTimerCallBack()
             {
                 if (marker_protective_laser_pub_.getTopic()!="")
                 {
+                    //mark protective area
                     send_cube_array(current_x, current_y, marker_array_protective_laser, front_laser_link_, 1);
                     send_cube_array(current_x, current_y, marker_array_protective_laser, back_laser_link_, 1);
                     marker_protective_laser_pub_.publish(marker_array_protective_laser);
@@ -368,6 +371,7 @@ void TOEAController::MainTimerCallBack()
                 //ROS_DEBUG_NAMED(logger_name_, "Obstacle in warning zone");
                 if (marker_warning_laser_pub_.getTopic()!="")
                 {
+                    //mark warning area
                     send_cube_array(current_x, current_y, marker_array_warning_laser, front_laser_link_, 2);
                     send_cube_array(current_x, current_y, marker_array_warning_laser, back_laser_link_, 2);
                     marker_warning_laser_pub_.publish(marker_array_warning_laser);
@@ -507,7 +511,7 @@ void TOEAController::MainTimerCallBack()
                         }
                     }
 
-                    if ((obstacle_in_warning_zone_) && (state_goto_ != STOP))
+                    if ((obstacle_in_warning_zone_ || obstacle_outlier_warning_) && (state_goto_ != STOP))
                     {
                         ROS_DEBUG_NAMED(logger_name_, "DEACCEL because of obstacle in warning zone");
                         state_goto_ = DE_ACCEL;
@@ -646,11 +650,15 @@ void TOEAController::MainTimerCallBack()
         } // if plan or pose received
 
 
-        //if too close to an obstacle
-        if(   (flag_obst_front && (linearVel > 0)) ||
+        // if too close to an obstacle
+        // can't move forward if obstacle in front but can move in front if obstacle is behind it
+        if(   (flag_obst_front && (linearVel > 0)) || 
               (flag_obst_back && (linearVel < 0))  ||
               ((flag_obst_front_left || flag_obst_back_right) && ((angularVel > 0) && fabs(angularVel) > 0.05)) ||
-              ((flag_obst_front_right || flag_obst_back_left) && ((angularVel < 0) && fabs(angularVel) > 0.05)))
+              ((flag_obst_front_right || flag_obst_back_left) && ((angularVel < 0) && fabs(angularVel) > 0.05)) ||
+              (obstacle_outlier_protective_front_ && (linearVel > 0)) ||
+              (obstacle_outlier_protective_back_ && (linearVel < 0))
+              )
         {
             ROS_WARN_NAMED(logger_name_, "Obstacle detected - setting velocity to 0!!");
             pub_state_ = OBSTACLE;
@@ -1086,54 +1094,6 @@ void TOEAController::GetNextTargetFromPlan(int next)
         double tol = tolerance_d - cost * ((tolerance_d-tolerance_d_last_point)/4);
 
         int col;
-       /* if ((pose_index==n_poses-1) || obstacle_in_warning_zone_ )// is last target
-        {
-
-            cost++;
-
-            if (cost == 0)
-            {
-                col = 0x00ff00; // green
-                std::cout << BOLDGREEN << "Green" << RESET << std::endl;
-            }
-            if (cost == 1)
-            {
-                col = 0xFFFF66; // yellow
-                std::cout << BOLDYELLOW << "yellow" << RESET << std::endl;
-            }
-            if (cost == 2)
-            {
-                col = 0xFF6600; // orange
-                std::cout << BOLDWHITE << "orange" << RESET << std::endl;
-            }
-            if (cost == 3)
-            {
-                col = 0xFF0066; // hot pink
-                std::cout << BOLDMAGENTA << "MAGENTA" << RESET << std::endl;
-            }
-            if (cost == 4)
-            {
-                col = 0xff0000; // red
-                cost = 3;
-                std::cout << BOLDRED << "red" << RESET << std::endl;
-            }
-            if (cost == 5)
-            {
-                col = 0xff0000; // red
-                cost = 4;
-                std::cout << BOLDRED << "red" << RESET << std::endl;
-            }
-
-
-            current_tolerance_d = tolerance_d - (cost) * ((tolerance_d-tolerance_d_last_point)/4); //tolerance_d_last_point;
-            current_tolerance_yaw = tolerance_yaw_last_point;
-        }
-        else
-        {
-            current_tolerance_d = tolerance_d - cost * ((tolerance_d-tolerance_d_last_point)/4); //tolerance_d;
-            current_tolerance_yaw = tolerance_yaw;
-        }*/
-
 
         if (pose_index==n_poses-1)
         {
@@ -1424,6 +1384,7 @@ void TOEAController::send_cube_array(float wx, float wy, visualization_msgs::Mar
     {
         count = 0;
         marker_array.markers.clear();
+        marker_id_laser=0;
     }
 
     visualization_msgs::Marker points;
@@ -1785,6 +1746,79 @@ void TOEAController::obstacle_timerCB(const ros::TimerEvent& event)
     }
     else
         stop_robot("there's an immovable obstacle in the way of the robot");
+}
+
+
+void TOEAController::outliersCB(const sensor_msgs::PointCloud2::ConstPtr& pc2_msg)
+{
+    obstacle_outlier_protective_front_ = obstacle_outlier_protective_back_ = obstacle_outlier_warning_ = false;
+
+    // convert ROS PC2 to PCL PC2
+    pcl::PCLPointCloud2 pcl_pc;
+    pcl_conversions::toPCL(*pc2_msg, pcl_pc);
+    pcl::PointCloud<pcl::PointXYZINormal> cloud;
+    pcl::fromPCLPointCloud2(pcl_pc, cloud);
+
+    tf::StampedTransform transform;
+       try{
+         tf_listener.lookupTransform("/map", "/base_link",
+                                  ros::Time(0), transform);
+       }
+       catch (tf::TransformException &ex) {
+         ROS_ERROR("%s",ex.what());
+         ros::Duration(1.0).sleep();
+         //continue;
+         return;
+       }
+
+
+    for (int i=0; i < cloud.size(); i++)
+    {
+
+        geometry_msgs::PoseStamped p, p_base;
+
+        p.pose.position.x = cloud.points[i].x;
+        p.pose.position.y = cloud.points[i].y;
+        p.pose.position.z = cloud.points[i].z;
+        p.pose.orientation = tf::createQuaternionMsgFromYaw(0);
+        p.header.frame_id = cloud.header.frame_id;
+
+        tf_listener.transformPose("base_link", p, p_base);
+
+
+        float protective_outliers_forward, protective_outliers_lateral, warning_outliers_forward, warning_outliers_lateral;
+
+        protective_outliers_forward = 0.56+0.4;
+        protective_outliers_lateral = 0.56+0.4;
+        warning_outliers_forward = 0.56+1.0;
+        warning_outliers_lateral = 0.56+0.6;
+
+
+        // PROTECTIVE
+        if ((( -protective_outliers_forward < p_base.pose.position.x) && (p_base.pose.position.x < 0)) && (( -protective_outliers_lateral < p_base.pose.position.y) && (p_base.pose.position.y < protective_outliers_lateral)))
+        {
+            obstacle_outlier_protective_back_ = true;
+            ROS_WARN_STREAM_NAMED(logger_name_, "[Protective area] Outlier obstacle is behind the robot");
+        }
+        if ((( 0 <= p_base.pose.position.x) && (p_base.pose.position.x < protective_outliers_forward)) && (( -protective_outliers_lateral < p_base.pose.position.y) && (p_base.pose.position.y < protective_outliers_lateral)))
+        {
+            obstacle_outlier_protective_front_ = true;
+            ROS_WARN_STREAM_NAMED(logger_name_, "[Protective area] Outlier obstacle is in front of the robot");
+        }
+
+        if (obstacle_outlier_protective_back_ || obstacle_outlier_protective_front_)
+            return;
+        else // WARNING
+        {
+            if ((( -warning_outliers_forward < p_base.pose.position.x) && (p_base.pose.position.x < warning_outliers_forward)) && (( -warning_outliers_lateral < p_base.pose.position.y) && (p_base.pose.position.y < warning_outliers_lateral)))
+            {
+                obstacle_outlier_warning_ = true;
+                ROS_DEBUG_STREAM_NAMED(logger_name_, "[Warning area] Outlier obstacle is in warning area");
+            }
+            return;
+        }
+
+    }
 }
 
 }// namespace

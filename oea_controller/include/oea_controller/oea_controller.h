@@ -24,7 +24,17 @@
 #include <std_srvs/Empty.h>
 #include <ros/console.h>
 #include <oea_msgs/Oea_path.h>
-
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl_conversions/pcl_conversions.h>
+//#include <pcl_ros/transforms.h>
+#include <pcl/io/io.h>
+#include <pcl_ros/io/pcd_io.h>
+#include <pcl_ros/transforms.h>
+#include <pcl/point_types.h>
+#include <pcl/PCLPointCloud2.h>
+#include <pcl/conversions.h>
+#include <tf/transform_listener.h>
+#include <tf/tf.h>
 
 #define ROTATE 0
 #define ROTATE_AND_GO 0
@@ -44,7 +54,6 @@
 #define deg_5 0.0872664626
 #define deg_10 0.174532925
 #define deg_170 2.96705973
-
 
 #define color_path 0x0000FF //blue
 
@@ -130,6 +139,7 @@ private:
     ros::Subscriber joy_sub_;
     ros::Subscriber server_sub_;
     ros::Publisher robot_pose_pub_;
+    ros::Subscriber outliers_sub_; //subscriber pointcloud outliers
     int state_goto_;
     bool debug_, debug_vel_, always_show_protective_laser_, show_laser_front_, show_laser_back_;
    // double x_target, y_target, theta_target;
@@ -167,7 +177,7 @@ private:
     bool pub_zones_markers_;
     dynamic_reconfigure::Server<ctrl_paramsConfig> params_server;
     dynamic_reconfigure::Server<ctrl_paramsConfig>::CallbackType f;
-    bool obstacle_in_warning_front_, obstacle_in_warning_back_, obstacle_in_warning_zone_;
+    bool obstacle_in_warning_front_, obstacle_in_warning_back_, obstacle_in_warning_zone_, obstacle_outlier_protective_back_, obstacle_outlier_protective_front_ , obstacle_outlier_warning_;
     int timer_msecs_;
     double tolerance_d_last_point, tolerance_yaw_last_point, current_tolerance_d, current_tolerance_yaw;
     void obstacle_timerCB(const ros::TimerEvent& event);
@@ -176,6 +186,8 @@ private:
     bool force_stop_robot(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
     bool cancel_action(std::string);
     bool group_points_;
+    void outliersCB(const sensor_msgs::PointCloud2::ConstPtr& pc2_msg);
+    tf::TransformListener tf_listener;
 private Q_SLOTS:
     void MainTimerCallBack();
     void FrontLaserScanSubCallBack();
