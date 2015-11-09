@@ -97,33 +97,9 @@ TOEAController::TOEAController(ros::NodeHandle nodeHandle)
     error_deviation = to_radians(error_deviation);
     nodeHandle.param("scale_on_curves", scale_on_curves, 0.3);
 
-    // because lasers are not symmetrical and we want a symmetrical safety area around lasers
-    // this is hardcoded for the CARLoS robot - make this more generic
-    front_laser_offset = 0.08;
-    back_laser_offset = 0.13;
-
-    double tmp;
-    nodeHandle.param("forward_protective_distance", tmp, 0.325);
-    FRONT_FWD_DIST = tmp + front_laser_offset; //offset laser-track
-    BACK_FWD_DIST = tmp + back_laser_offset; //offset laser-track
-
-    nodeHandle.param("lateral_protective_distance", LAT_DIST, 0.3);
     nodeHandle.param("send_markers", send_markers, false);
     nodeHandle.param("stop_with_joystick", stop_with_joystick, true);
     nodeHandle.param("use_yaw_on_middle_points", use_yaw_on_middle_points_, true);
-
-    FRONT_CORNER_ANG = atan(LAT_DIST/FRONT_FWD_DIST);
-    BACK_CORNER_ANG = atan(LAT_DIST/BACK_FWD_DIST);
-
-	double tmp2;
-    nodeHandle.param("forward_warning_distance", tmp2, 0.325);
-    FRONT_WARN_FWD_DIST = tmp2 + front_laser_offset; //offset laser-track
-    BACK_WARN_FWD_DIST = tmp2 + back_laser_offset; //offset laser-track
-
-    nodeHandle.param("lateral_warning_distance", WARN_LAT_DIST, 0.3);
-    FRONT_WARN_CORNER_ANG = atan(WARN_LAT_DIST/FRONT_WARN_FWD_DIST);
-    BACK_WARN_CORNER_ANG = atan(WARN_LAT_DIST/BACK_WARN_FWD_DIST);
-
 
     nodeHandle.param<std::string>("front_laser_link", front_laser_link_, "hokuyo_front_laser_link");
     nodeHandle.param<std::string>("back_laser_link", back_laser_link_, "hokuyo_back_laser_link");
@@ -135,6 +111,46 @@ TOEAController::TOEAController(ros::NodeHandle nodeHandle)
     nodeHandle.param("erro_theta2_stuck_th_sup", erro_theta2_stuck_th_sup, 100);
 
     nodeHandle.param("obstacle_timeout", obstacle_timeout, 20);
+
+    // laser safety area - prevents hitting walls/ very close objects and people
+
+    // because lasers are not symmetrical and we want a symmetrical safety area around lasers
+    // this is hardcoded for the CARLoS robot - make this more generic
+    front_laser_offset = 0.08;
+    back_laser_offset = 0.13;
+
+    double tmp;
+    nodeHandle.param("safety_area/laser_protective_fwd_dist", tmp, 0.325);
+    FRONT_FWD_DIST = tmp + front_laser_offset; //offset laser-track
+    BACK_FWD_DIST = tmp + back_laser_offset; //offset laser-track
+
+    nodeHandle.param("safety_area/laser_protective_lat_dist", LAT_DIST, 0.3);
+    FRONT_CORNER_ANG = atan(LAT_DIST/FRONT_FWD_DIST);
+    BACK_CORNER_ANG = atan(LAT_DIST/BACK_FWD_DIST);
+
+    double tmp2;
+    nodeHandle.param("safety_area/laser_warning_fwd_dist", tmp2, 0.325);
+    FRONT_WARN_FWD_DIST = tmp2 + front_laser_offset; //offset laser-track
+    BACK_WARN_FWD_DIST = tmp2 + back_laser_offset; //offset laser-track
+
+    nodeHandle.param("safety_area/laser_warning_lat_dist", WARN_LAT_DIST, 0.3);
+    FRONT_WARN_CORNER_ANG = atan(WARN_LAT_DIST/FRONT_WARN_FWD_DIST);
+    BACK_WARN_CORNER_ANG = atan(WARN_LAT_DIST/BACK_WARN_FWD_DIST);
+
+    // outliers safety distances - prevents hitting people and other objects
+    nodeHandle.param("safety_area/outlier_protective_fwd_dist", outliers_protective_forward_dist_, 1.0);
+    nodeHandle.param("safety_area/outlier_protective_lat_dist", outliers_protective_lateral_dist_, 0.4);
+    nodeHandle.param("safety_area/outlier_warning_fwd_dist", outliers_warning_forward_dist_, 1.0);
+    nodeHandle.param("safety_area/outlier_warning_lat_dist", outliers_warning_lateral_dist_, 0.4);
+
+	// get the robot's dimensions from the planner
+    nodeHandle.param("/oea_planner/robot_x_size", robot_x_size_, 1.12); //get robot size for safety
+    nodeHandle.param("/oea_planner/robot_y_size", robot_y_size_, 0.5);
+
+    outliers_protective_forward_dist_ += robot_x_size_/2; // add half the robot size to be in base_link reference
+    outliers_protective_lateral_dist_ += robot_y_size_/2;
+    outliers_warning_forward_dist_ += robot_x_size_/2;
+    outliers_warning_lateral_dist_ += robot_y_size_/2;
 
     marker_id_zones=0;
     marker_id_laser=0;
@@ -355,7 +371,7 @@ void TOEAController::MainTimerCallBack()
 
         if (send_markers)
         {
-            if (show_laser_front_ || show_laser_back_)
+           /* if (show_laser_front_ || show_laser_back_)
             {
                 if (marker_protective_laser_pub_.getTopic()!="")
                 {
@@ -364,9 +380,9 @@ void TOEAController::MainTimerCallBack()
                     send_cube_array(current_x, current_y, marker_array_protective_laser, back_laser_link_, 1);
                     marker_protective_laser_pub_.publish(marker_array_protective_laser);
                 }
-            }
+            }*/
 
-            if (obstacle_in_warning_zone_)
+           /* if (obstacle_in_warning_zone_)
             {
                 //ROS_DEBUG_NAMED(logger_name_, "Obstacle in warning zone");
                 if (marker_warning_laser_pub_.getTopic()!="")
@@ -376,7 +392,7 @@ void TOEAController::MainTimerCallBack()
                     send_cube_array(current_x, current_y, marker_array_warning_laser, back_laser_link_, 2);
                     marker_warning_laser_pub_.publish(marker_array_warning_laser);
                 }
-            }
+            }*/
 
             if (pub_zones_markers_)
             {
@@ -1532,22 +1548,25 @@ void TOEAController::joyCallback(const sensor_msgs::Joy::ConstPtr& joy)
      tolerance_yaw = to_radians(config.tolerance_yaw_deg);
 
      use_yaw_on_middle_points_ = config.use_yaw_on_middle_points;
-//protective/PROTECTIVE LASER
-     double tmp;
-     tmp = config.forward_protective_distance;
+//SAFETY
+  //LASER PROTECTIVE
+  /*   double tmp;
+     tmp = config.forward_protective_distance; //e aqui tb trocar nomes
      FRONT_FWD_DIST = tmp + front_laser_offset;
      BACK_FWD_DIST = tmp + back_laser_offset;
      FRONT_CORNER_ANG = atan(LAT_DIST/FRONT_FWD_DIST);
      BACK_CORNER_ANG = atan(LAT_DIST/BACK_FWD_DIST);
      LAT_DIST = config.lateral_protective_distance;
-//WARNING LASER
+  //LASER WARNING
      tmp  = config.forward_warning_distance;
      FRONT_WARN_FWD_DIST = tmp + front_laser_offset;
      BACK_WARN_FWD_DIST = tmp + back_laser_offset;
      FRONT_WARN_CORNER_ANG = atan(WARN_LAT_DIST/FRONT_WARN_FWD_DIST);
      BACK_WARN_CORNER_ANG = atan(WARN_LAT_DIST/BACK_WARN_FWD_DIST);
-	 WARN_LAT_DIST = config.lateral_warning_distance;
-
+     WARN_LAT_DIST = config.lateral_warning_distance;
+  //OUTLIERS PROTECTIVE
+	 // TODO
+*/
      //timer_msecs = config.timer_rate;
      //FMainTimer->setInterval(timer_msecs); // change timer period
 
@@ -1751,6 +1770,7 @@ void TOEAController::obstacle_timerCB(const ros::TimerEvent& event)
 
 void TOEAController::outliersCB(const sensor_msgs::PointCloud2::ConstPtr& pc2_msg)
 {
+    // flags outliers on protective or warning area
     obstacle_outlier_protective_front_ = obstacle_outlier_protective_back_ = obstacle_outlier_warning_ = false;
 
     // convert ROS PC2 to PCL PC2
@@ -1759,66 +1779,59 @@ void TOEAController::outliersCB(const sensor_msgs::PointCloud2::ConstPtr& pc2_ms
     pcl::PointCloud<pcl::PointXYZINormal> cloud;
     pcl::fromPCLPointCloud2(pcl_pc, cloud);
 
+    // get map to base_link transform
     tf::StampedTransform transform;
-       try{
-         tf_listener.lookupTransform("/map", "/base_link",
-                                  ros::Time(0), transform);
-       }
-       catch (tf::TransformException &ex) {
-         ROS_ERROR("%s",ex.what());
-         ros::Duration(1.0).sleep();
-         //continue;
-         return;
-       }
+    try{
+        tf_listener.waitForTransform("/map", "/base_link", ros::Time(0), ros::Duration(1.5));
+        tf_listener.lookupTransform("/map", "/base_link",
+                                    ros::Time(0), transform);
+    }
+    catch (tf::TransformException &ex) {
+        ROS_ERROR("[outliersCB] %s",ex.what());
+        ros::Duration(1.0).sleep();
+        //continue;
+        return;
+    }
 
-
-    for (int i=0; i < cloud.size(); i++)
+    geometry_msgs::PoseStamped p; // pointcloud pose in map frame
+    geometry_msgs::PoseStamped p_base; //  pointcloud pose in base_link frame
+    for (int i=0; i < cloud.size(); i++) // oultiers cloud
     {
-
-        geometry_msgs::PoseStamped p, p_base;
-
         p.pose.position.x = cloud.points[i].x;
         p.pose.position.y = cloud.points[i].y;
         p.pose.position.z = cloud.points[i].z;
         p.pose.orientation = tf::createQuaternionMsgFromYaw(0);
         p.header.frame_id = cloud.header.frame_id;
 
-        tf_listener.transformPose("base_link", p, p_base);
+        tf_listener.transformPose("base_link", p, p_base); //transform pose in map to base_link
 
-
-        float protective_outliers_forward, protective_outliers_lateral, warning_outliers_forward, warning_outliers_lateral;
-
-        protective_outliers_forward = 0.56+0.4;
-        protective_outliers_lateral = 0.56+0.4;
-        warning_outliers_forward = 0.56+1.0;
-        warning_outliers_lateral = 0.56+0.6;
-
-
-        // PROTECTIVE
-        if ((( -protective_outliers_forward < p_base.pose.position.x) && (p_base.pose.position.x < 0)) && (( -protective_outliers_lateral < p_base.pose.position.y) && (p_base.pose.position.y < protective_outliers_lateral)))
+        //WARNING
+        if ((( -outliers_warning_forward_dist_ < p_base.pose.position.x) && (p_base.pose.position.x < outliers_warning_forward_dist_)) && (( -outliers_warning_lateral_dist_ < p_base.pose.position.y) && (p_base.pose.position.y < outliers_warning_lateral_dist_)))
         {
-            obstacle_outlier_protective_back_ = true;
-            ROS_WARN_STREAM_NAMED(logger_name_, "[Protective area] Outlier obstacle is behind the robot");
-        }
-        if ((( 0 <= p_base.pose.position.x) && (p_base.pose.position.x < protective_outliers_forward)) && (( -protective_outliers_lateral < p_base.pose.position.y) && (p_base.pose.position.y < protective_outliers_lateral)))
-        {
-            obstacle_outlier_protective_front_ = true;
-            ROS_WARN_STREAM_NAMED(logger_name_, "[Protective area] Outlier obstacle is in front of the robot");
-        }
-
-        if (obstacle_outlier_protective_back_ || obstacle_outlier_protective_front_)
-            return;
-        else // WARNING
-        {
-            if ((( -warning_outliers_forward < p_base.pose.position.x) && (p_base.pose.position.x < warning_outliers_forward)) && (( -warning_outliers_lateral < p_base.pose.position.y) && (p_base.pose.position.y < warning_outliers_lateral)))
+            // PROTECTIVE FRONT
+            if ((( 0 <= p_base.pose.position.x) && (p_base.pose.position.x < outliers_protective_forward_dist_)) && (( -outliers_protective_lateral_dist_ < p_base.pose.position.y) && (p_base.pose.position.y < outliers_protective_lateral_dist_)))
             {
-                obstacle_outlier_warning_ = true;
-                ROS_DEBUG_STREAM_NAMED(logger_name_, "[Warning area] Outlier obstacle is in warning area");
+                obstacle_outlier_protective_front_ = true;
             }
-            return;
-        }
+            // PROTECTIVE BEHINDE
+            if ((( -outliers_protective_forward_dist_ < p_base.pose.position.x) && (p_base.pose.position.x < 0)) && (( -outliers_protective_lateral_dist_ < p_base.pose.position.y) && (p_base.pose.position.y < outliers_protective_lateral_dist_)))
+            {
+                obstacle_outlier_protective_back_ = true;
+            }
 
+            //if (!obstacle_outlier_protective_back_ && !obstacle_outlier_protective_front_)
+            obstacle_outlier_warning_ = true;
+        }
     }
+
+    if (obstacle_outlier_protective_back_ )
+        ROS_WARN_STREAM_NAMED(logger_name_, "[Protective area] Outlier obstacle is behind the robot");
+
+    if (obstacle_outlier_protective_front_)
+        ROS_WARN_STREAM_NAMED(logger_name_, "[Protective area] Outlier obstacle is in front of the robot");
+
+    if (!obstacle_outlier_protective_front_ && !obstacle_outlier_protective_back_ && obstacle_outlier_warning_)
+        ROS_DEBUG_STREAM_NAMED(logger_name_, "[Warning area] Outlier obstacle is in warning area");
 }
 
 }// namespace

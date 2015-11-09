@@ -115,6 +115,7 @@ public:
     int delta_angle_stuck_th, erro_theta2_stuck_th_low, erro_theta2_stuck_th_sup;
     double front_laser_offset, back_laser_offset;
     std::string logger_name_;
+ 	double outliers_protective_forward_dist_, outliers_protective_lateral_dist_, outliers_warning_forward_dist_, outliers_warning_lateral_dist_;
 private:
     QTimer* FMainTimer;
     qt_ros_interface::TQrosTfPoseSub* FTfPoseSub;
@@ -188,6 +189,7 @@ private:
     bool group_points_;
     void outliersCB(const sensor_msgs::PointCloud2::ConstPtr& pc2_msg);
     tf::TransformListener tf_listener;
+    double robot_x_size_, robot_y_size_;
 private Q_SLOTS:
     void MainTimerCallBack();
     void FrontLaserScanSubCallBack();
