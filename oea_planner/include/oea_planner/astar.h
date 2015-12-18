@@ -86,6 +86,8 @@ public:
     dynamic_reconfigure::Server<oea_planner::planner_paramsConfig> params_server;
     dynamic_reconfigure::Server<oea_planner::planner_paramsConfig>::CallbackType f;
 
+    ros::Time time_init_Astar;
+
     void allocate();
 // set
     void SetGridPoint(TGridCoord& point, int x, int y, int z);

@@ -167,7 +167,7 @@ void TAstar::SetGridFromMap(const nav_msgs::OccupancyGrid::ConstPtr& map, sensor
         }
     }
 
-
+    std::cout << "Number cells: " << world_map_.height << " x " << world_map_.width << " = " << world_map_.height* world_map_.width << RESET   << std::endl;
     ros::Duration d = ros::Time::now()-time_0;
     ROS_DEBUG_STREAM_NAMED(logger_name_, "Setting cells took: " << d.toSec() << " seconds.");
 
@@ -827,6 +827,7 @@ bool TAstar::AStarGo(int maxIter, std::string &error_str, oea_msgs::Oea_path& pa
     if (GetGridCellState(AStarMap_.TargetPoint) == AStarClosed)
         ROS_ERROR_NAMED(logger_name_, "Closed point - path will not be valid");
 
+    time_init_Astar = ros::Time::now();
     AStarInit();
 
     while (true)
@@ -853,6 +854,10 @@ bool TAstar::AStarGo(int maxIter, std::string &error_str, oea_msgs::Oea_path& pa
         //check for neighbours of target Point!!!!!
         if(GetGridCellState(AStarMap_.ActualTargetPoint) == AStarClosed)
         {
+            ros::Duration d = ros::Time::now()-time_init_Astar;
+            ROS_DEBUG_STREAM_NAMED(logger_name_, "Astar took: " << d.toSec() << " seconds.");
+            std::cout << BOLDGREEN << "***** Astar took: "  << d.toSec() << " seconds." << RESET << std::endl;
+
           /*  if (AStarMap_.Profiler.iter <= 1) //understand why this is happening
             {
                 ROS_WARN_STREAM_NAMED(logger_name_, "Couldn't find path :( (only " << AStarMap_.Profiler.iter <<" iteration(s))");
